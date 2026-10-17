@@ -38,7 +38,7 @@ Mute and camera status need no polling: CAVZRC sends them when they change. **Re
 
 ### Gallery ("not joined" seats), CAVZRC 7.1
 
-In **Assigned** distribution mode a seat keeps a person's name after they leave or rename ("Sara not joined"). New actions:
+In **Assigned** distribution mode a seat keeps a person's name after they leave or rename, shown as "<name> not joined". New actions:
 
 - **Gallery: Clear all seats of the meeting**: removes every seat; people still in the call are seated again, ghosts are not. People may move to another screen.
 - **Gallery: Delete seat**: one seat, the same as the X in the CAVZRC Gallery Assignments window.
