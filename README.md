@@ -38,19 +38,22 @@ Mute and camera status need no polling: CAVZRC sends them when they change. **Re
 
 ### Gallery ("not joined" seats), CAVZRC 7.1
 
-In **Assigned** distribution mode a seat keeps a person's name after they leave or rename, shown as "<name> not joined". New actions:
+In **Assigned** distribution mode a seat keeps a person's name after they leave or rename, shown as "<name> not joined". New actions (✅ tested on a live CAVZRC 7.1.0, ⚠️ not tested yet):
 
-- **Gallery: Clear all seats of the meeting**: removes every seat; people still in the call are seated again, ghosts are not. People may move to another screen.
-- **Gallery: Delete seat**: one seat, the same as the X in the CAVZRC Gallery Assignments window.
-- **Gallery: Assign participant to seat**, **Swap two seats**, **Set distribution mode**, **Reload assignments from CSV**.
-- **Gallery: Exclude self / hosts / no-video** and **Exclude participant by name**.
-- **Gallery: Set meeting ID**: for meetings started from the tablet.
+- ✅ **Gallery: Clear all seats of the meeting**: removes every seat; people still in the call are seated again, ghosts are not. ⚠️ Not yet watched on the screens: people may move to another screen.
+- ✅ **Gallery: Delete seat**: removes one seat (meant to match the X in the CAVZRC Gallery Assignments window; not compared side by side).
+- ✅ **Gallery: Set distribution mode**.
+- ⚠️ **Gallery: Assign participant to seat**, **Swap two seats**, **Reload assignments from CSV**.
+- ⚠️ **Gallery: Exclude self / hosts / no-video** and **Exclude participant by name**. These are the CAVZRC 7.1 API options; they may not be the same setting as the host exclusion in the CAVZRC window.
+- **Gallery: Set meeting ID**: stores the ID for meetings the module did not join itself (started from the tablet or from the CAVZRC window).
 
-The seat actions need the meeting ID, which CAVZRC never reports. Leave their field blank to use `room_N_meeting_id`, set by **Join meeting** or **Gallery: Set meeting ID** and cleared when the meeting ends.
+The seat actions need the meeting ID, which CAVZRC never reports. Leave their field blank to use `room_N_meeting_id`. It is set only by this module's **Join meeting** action or by **Gallery: Set meeting ID**; a meeting joined from the tablet or the CAVZRC window is not seen. It is cleared when the room goes back to an idle status (⚠️ the module expects "Idle" or "Not in meeting"; not yet confirmed on live traffic).
 
 New feedbacks: **Gallery has "not joined" seats** and **Gallery distribution mode is**.
 
 ### HWIO layout
+
+⚠️ The HWIO layout actions are not tested on a live CAVZRC yet; reading the layout back is.
 
 - **HWIO: Set tile aspect ratio**: one or more channels (`1,3,4,5`), with a ratio that matches the current gallery grid (recommended), a preset per layout, or a custom value.
 - **HWIO: Set gallery grid size**: the "Hardware output gallery size", optionally with the matching aspect ratio.
