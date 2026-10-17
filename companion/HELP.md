@@ -49,8 +49,11 @@ These actions need the meeting ID. Leave the field blank to use `room_N_meeting_
 **Join meeting** and by **Gallery: Set meeting ID** (for meetings started from the tablet), and is
 cleared when the meeting ends. CAVZRC never reports the meeting ID itself.
 
-**HWIO: Set gallery grid size** can also set the tile aspect ratio that fills each listed output
-(1x2 on 1920x1080 = 0.889, 2x2 = 1.778, 2x3 = 1.185).
+**HWIO: Set tile aspect ratio** sets one or more channels (e.g. `1,3,4,5`) to a recommended ratio for a
+layout (1x2 on 1920x1080 = 0.889, 2x2 = 1.778, 2x3 = 1.185), a custom value, or "Match the current
+gallery grid", which uses the grid size CAVZRC last reported. **HWIO: Set gallery grid size** can also
+set the matching ratio (off by default). Channels are changed one at a time, 250 ms apart, and after a
+grid change the module waits 500 ms before touching them.
 
 ## Target types (room commands)
 

@@ -230,23 +230,84 @@ describe('gallery actions', () => {
 		expect(send).toHaveBeenCalledWith('/zoomRooms/roomID/removeGalleryAssignment', [ROOM, '123456789'])
 	})
 
-	it('sets the grid and a float tile aspect ratio on each listed channel', () => {
-		invoke(actions.setHWIOGalleryGridSize, {
-			targetType: 'roomIndex',
-			roomIndex: '1',
-			rows: 2,
-			cols: 2,
-			setAspect: true,
-			channels: '1, 3',
-			width: 1920,
-			height: 1080,
+	describe('grid and aspect ratio', () => {
+		beforeEach(() => jest.useFakeTimers())
+		afterEach(() => jest.useRealTimers())
+
+		it('sets the grid, then each channel aspect one at a time after the grid has settled', () => {
+			invoke(actions.setHWIOGalleryGridSize, {
+				targetType: 'roomIndex',
+				roomIndex: '1',
+				rows: 2,
+				cols: 2,
+				setAspect: true,
+				channels: '1, 3',
+				width: 1920,
+				height: 1080,
+			})
+			expect(send.mock.calls).toEqual([
+				['/zoomRooms/roomIndex/setHWIOGalleryGridSize', [1, 2, 2]],
+				['/zoomRooms/roomIndex/getHWIOGalleryGridSize', [1]],
+			])
+			jest.advanceTimersByTime(500)
+			expect(send.mock.calls.slice(2)).toEqual([
+				['/zoomRooms/roomIndex/setHWIOAspectRatio', [1, 1, { type: 'f', value: 1.778 }]],
+				['/zoomRooms/roomIndex/getHWIOLayoutSettings', [1, 1]],
+			])
+			jest.advanceTimersByTime(250)
+			expect(send.mock.calls.slice(4)).toEqual([
+				['/zoomRooms/roomIndex/setHWIOAspectRatio', [1, 3, { type: 'f', value: 1.778 }]],
+				['/zoomRooms/roomIndex/getHWIOLayoutSettings', [1, 3]],
+			])
 		})
-		expect(send.mock.calls).toEqual([
-			['/zoomRooms/roomIndex/setHWIOGalleryGridSize', [1, 2, 2]],
-			['/zoomRooms/roomIndex/setHWIOAspectRatio', [1, 1, { type: 'f', value: 1.778 }]],
-			['/zoomRooms/roomIndex/setHWIOAspectRatio', [1, 3, { type: 'f', value: 1.778 }]],
-			['/zoomRooms/roomIndex/getHWIOGalleryGridSize', [1]],
-		])
+
+		it('leaves the aspect alone by default', () => {
+			invoke(actions.setHWIOGalleryGridSize, { targetType: 'roomIndex', roomIndex: '1', rows: 1, cols: 2 })
+			jest.advanceTimersByTime(5000)
+			expect(send.mock.calls.map((c) => c[0])).toEqual([
+				'/zoomRooms/roomIndex/setHWIOGalleryGridSize',
+				'/zoomRooms/roomIndex/getHWIOGalleryGridSize',
+			])
+		})
+
+		it('applies a preset ratio to several channels', () => {
+			invoke(actions.setHWIOAspectRatio, { targetType: 'roomIndex', roomIndex: '1', channels: '4,5', preset: '0.889' })
+			jest.advanceTimersByTime(1000)
+			expect(send.mock.calls.filter((c) => String(c[0]).endsWith('setHWIOAspectRatio'))).toEqual([
+				['/zoomRooms/roomIndex/setHWIOAspectRatio', [1, 4, { type: 'f', value: 0.889 }]],
+				['/zoomRooms/roomIndex/setHWIOAspectRatio', [1, 5, { type: 'f', value: 0.889 }]],
+			])
+		})
+
+		it('matches the grid CAVZRC last reported, and warns when it is unknown', () => {
+			invoke(actions.setHWIOAspectRatio, { targetType: 'roomIndex', roomIndex: '1', channels: '1', preset: 'grid' })
+			expect(instance.log).toHaveBeenCalledWith('warn', expect.stringContaining('grid size unknown'))
+			expect(send).toHaveBeenCalledWith('/zoomRooms/roomIndex/getHWIOGalleryGridSize', [1])
+			send.mockClear()
+			instance.state.rooms[ROOM] = { roomID: ROOM, roomName: '', roomIndex: 1, galleryGridRows: 2, galleryGridCols: 3 }
+			invoke(actions.setHWIOAspectRatio, {
+				targetType: 'roomIndex',
+				roomIndex: '1',
+				channels: '1',
+				preset: 'grid',
+				width: 1920,
+				height: 1080,
+			})
+			jest.advanceTimersByTime(0)
+			expect(send).toHaveBeenCalledWith('/zoomRooms/roomIndex/setHWIOAspectRatio', [1, 1, { type: 'f', value: 1.185 }])
+		})
+
+		it('sends a custom ratio', () => {
+			invoke(actions.setHWIOAspectRatio, {
+				targetType: 'roomIndex',
+				roomIndex: '1',
+				channels: '2',
+				preset: 'custom',
+				aspect: 2,
+			})
+			jest.advanceTimersByTime(0)
+			expect(send).toHaveBeenCalledWith('/zoomRooms/roomIndex/setHWIOAspectRatio', [1, 2, { type: 'f', value: 2 }])
+		})
 	})
 
 	it('turns an exclude option on and reads the options back', () => {

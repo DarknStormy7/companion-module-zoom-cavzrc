@@ -59,6 +59,68 @@ export function parseChannelList(value: unknown): number[] {
 		.filter((n) => Number.isInteger(n) && n > 0)
 }
 
+/** Wait after a grid change before touching the tiles, and between channels, so CAVZRC re-lays out one output at a time. */
+const GRID_SETTLE_MS = 500
+const ASPECT_GAP_MS = 250
+
+/** Tile aspect ratios that fill a 1920x1080 output, by gallery grid. */
+export const ASPECT_PRESETS: { id: string; label: string; value: number }[] = [
+	{ id: '1.778', label: '1.778 (16:9) for 1x1, 2x2, 3x3, 4x4', value: 1.778 },
+	{ id: '0.889', label: '0.889 for 1x2 (two side by side)', value: 0.889 },
+	{ id: '3.556', label: '3.556 for 2x1 (two stacked)', value: 3.556 },
+	{ id: '1.185', label: '1.185 for 2x3', value: 1.185 },
+	{ id: '1.333', label: '1.333 (4:3) for 3x4', value: 1.333 },
+]
+
+const CHANNELS_OPTION: SomeCompanionActionInputField = {
+	type: 'textinput',
+	label: 'HWIO channels (e.g. 1,3,4,5)',
+	id: 'channels',
+	default: '1',
+	useVariables: true,
+}
+
+const OUTPUT_WIDTH_OPTION: SomeCompanionActionInputField = {
+	type: 'number',
+	label: 'Output width',
+	id: 'width',
+	default: 1920,
+	min: 1,
+	max: 7680,
+}
+
+const OUTPUT_HEIGHT_OPTION: SomeCompanionActionInputField = {
+	type: 'number',
+	label: 'Output height',
+	id: 'height',
+	default: 1080,
+	min: 1,
+	max: 4320,
+}
+
+/** setHWIOAspectRatio per channel, spaced out instead of in one burst; each layout is read back after. */
+function sendAspectRatios(
+	instance: ZoomRoomsInstance,
+	action: { options: Record<string, unknown> },
+	channels: number[],
+	aspect: number,
+	startDelayMs: number,
+): void {
+	if (channels.length === 0) {
+		instance.log('warn', 'Set tile aspect ratio: no channels listed')
+		return
+	}
+	channels.forEach((ch, i) => {
+		setTimeout(
+			() => {
+				roomCommandWithOpts(instance, 'setHWIOAspectRatio', () => [ch, { type: 'f', value: aspect }])(action)
+				roomCommandWithOpts(instance, 'getHWIOLayoutSettings', () => [ch])(action)
+			},
+			startDelayMs + i * ASPECT_GAP_MS,
+		)
+	})
+}
+
 /**
  * Send a meeting-scoped gallery command. A typed meeting ID goes to the
  * selected target; a blank one is filled per room from the stored ID.
@@ -276,75 +338,93 @@ export function GetActionsGallery(instance: ZoomRoomsInstance): {
 		},
 
 		[ActionIdGallery.setHWIOGalleryGridSize]: {
-			name: 'HWIO: Set gallery grid size (and tile aspect ratio)',
+			name: 'HWIO: Set gallery grid size',
 			description:
-				'Sets the fixed gallery grid on HWIO outputs. Optionally sets each listed channel to the tile aspect ratio that fills the output, e.g. 1x2 on 1920x1080 = 0.889.',
+				'Sets the fixed gallery grid on HWIO outputs. Optionally also sets the matching tile aspect ratio, one channel at a time after the grid has been applied.',
 			options: [
 				...ROOM_TARGET_OPTIONS,
 				{ type: 'number', label: 'Rows', id: 'rows', default: 1, min: 1, max: 10 },
 				{ type: 'number', label: 'Columns', id: 'cols', default: 1, min: 1, max: 10 },
-				{ type: 'checkbox', label: 'Also set the matching tile aspect ratio', id: 'setAspect', default: true },
-				{
-					type: 'textinput',
-					label: 'Gallery output channels (e.g. 1,3,4,5)',
-					id: 'channels',
-					default: '',
-					useVariables: true,
-					isVisible: (o) => !!o.setAspect,
-				},
-				{
-					type: 'number',
-					label: 'Output width',
-					id: 'width',
-					default: 1920,
-					min: 1,
-					max: 7680,
-					isVisible: (o) => !!o.setAspect,
-				},
-				{
-					type: 'number',
-					label: 'Output height',
-					id: 'height',
-					default: 1080,
-					min: 1,
-					max: 4320,
-					isVisible: (o) => !!o.setAspect,
-				},
+				{ type: 'checkbox', label: 'Also set the matching tile aspect ratio', id: 'setAspect', default: false },
+				{ ...CHANNELS_OPTION, isVisible: (o) => !!o.setAspect },
+				{ ...OUTPUT_WIDTH_OPTION, isVisible: (o) => !!o.setAspect },
+				{ ...OUTPUT_HEIGHT_OPTION, isVisible: (o) => !!o.setAspect },
 			],
 			callback: (action) => {
 				const o = action.options
 				const rows = Number(o.rows) || 1
 				const cols = Number(o.cols) || 1
 				roomCommandWithOpts(instance, 'setHWIOGalleryGridSize', () => [rows, cols])(action)
+				roomCommand(instance, 'getHWIOGalleryGridSize')(action)
 				if (o.setAspect) {
 					const aspect = tileAspectRatio(rows, cols, Number(o.width) || 1920, Number(o.height) || 1080)
-					for (const ch of parseChannelList(o.channels)) {
-						roomCommandWithOpts(instance, 'setHWIOAspectRatio', () => [ch, { type: 'f', value: aspect }])(action)
-					}
+					sendAspectRatios(instance, action, parseChannelList(o.channels), aspect, GRID_SETTLE_MS)
 				}
-				roomCommand(instance, 'getHWIOGalleryGridSize')(action)
 			},
 		},
 
 		[ActionIdGallery.setHWIOAspectRatio]: {
 			name: 'HWIO: Set tile aspect ratio',
+			description:
+				'Sets the tile aspect ratio on one or more HWIO channels, one channel at a time. "Match the gallery grid" uses the grid size CAVZRC last reported for the room.',
 			options: [
 				...ROOM_TARGET_OPTIONS,
-				CHANNEL_NUM_OPTION,
+				CHANNELS_OPTION,
+				{
+					type: 'dropdown',
+					label: 'Aspect ratio',
+					id: 'preset',
+					default: 'grid',
+					choices: [
+						{ id: 'grid', label: 'Match the current gallery grid (recommended)' },
+						...ASPECT_PRESETS.map((p) => ({ id: p.id, label: p.label })),
+						{ id: 'custom', label: 'Custom' },
+					],
+				},
 				{
 					type: 'number',
-					label: 'Aspect ratio (width / height)',
+					label: 'Custom aspect ratio (width / height)',
 					id: 'aspect',
 					default: 1.778,
 					min: 0.1,
 					max: 10,
 					step: 0.001,
+					isVisible: (o) => o.preset === 'custom',
 				},
+				{ ...OUTPUT_WIDTH_OPTION, isVisible: (o) => o.preset === 'grid' },
+				{ ...OUTPUT_HEIGHT_OPTION, isVisible: (o) => o.preset === 'grid' },
 			],
-			callback: roomCommandWithOpts(instance, 'setHWIOAspectRatio', (o) => [
-				Number(o.channel_num) || 1,
-				{ type: 'f', value: Number(o.aspect) || 1.778 },
-			]),
+			callback: (action) => {
+				const o = action.options
+				let aspect: number | undefined
+				if (o.preset === 'custom') {
+					aspect = Number(o.aspect) || undefined
+				} else if (o.preset === 'grid') {
+					const { targetType, roomArg } = getRoomTarget(o)
+					const room = resolveRoomIDs(instance, targetType, roomArg)
+						.map((id) => instance.state.rooms[id])
+						.find((r) => r?.galleryGridRows && r.galleryGridCols)
+					if (room?.galleryGridRows && room.galleryGridCols) {
+						aspect = tileAspectRatio(
+							room.galleryGridRows,
+							room.galleryGridCols,
+							Number(o.width) || 1920,
+							Number(o.height) || 1080,
+						)
+					} else {
+						instance.log(
+							'warn',
+							'Set tile aspect ratio: grid size unknown. Turn on "Gallery mode, grid size and exclude options" polling or pick a ratio.',
+						)
+						roomCommand(instance, 'getHWIOGalleryGridSize')(action)
+						return
+					}
+				} else {
+					aspect = ASPECT_PRESETS.find((p) => p.id === o.preset)?.value
+				}
+				if (!aspect) return
+				sendAspectRatios(instance, action, parseChannelList(o.channels), aspect, 0)
+			},
 		},
 
 		[ActionIdGallery.getHWIOLayoutSettings]: {
