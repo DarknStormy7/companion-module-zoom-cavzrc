@@ -165,13 +165,13 @@ describe('OSC addedRoomList message handler', () => {
 		])
 		triggerMessage(port, '/roomosc/addedRoomList', [
 			makeArg('i', 3),
-			makeArg('i', 1),
+			makeArg('i', 2),
 			makeArg('s', 'room-id-2'),
 			makeArg('s', 'Room Two'),
 		])
 		triggerMessage(port, '/roomosc/addedRoomList', [
 			makeArg('i', 3),
-			makeArg('i', 2),
+			makeArg('i', 3),
 			makeArg('s', 'room-id-3'),
 			makeArg('s', 'Room Three'),
 		])
@@ -256,7 +256,7 @@ describe('OSC pairedRoomList message handler', () => {
 		])
 		triggerMessage(port, '/roomosc/pairedRoomList', [
 			makeArg('i', 2),
-			makeArg('i', 1),
+			makeArg('i', 2),
 			makeArg('s', 'paired-id-2'),
 			makeArg('s', 'Paired Room Two'),
 		])

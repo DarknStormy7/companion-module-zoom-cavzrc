@@ -1,5 +1,6 @@
 import type { CompanionFeedbackDefinition } from '@companion-module/base'
 import type { ZoomRoomsInstance } from '../utils.js'
+import { isInMeetingStatus } from '../utils.js'
 import { getRoomOption } from './feedback-utils.js'
 
 export enum FeedbackIdRoomStatus {
@@ -39,8 +40,8 @@ export function GetFeedbacksRoomStatus(instance: ZoomRoomsInstance): {
 				if (!roomId) return false
 				const room = instance.state.rooms[roomId]
 				if (!room || room.meetingStatus === undefined) return false
-				const status = (room.meetingStatus || '').toLowerCase()
-				return status !== '' && status !== 'not in meeting' && status !== 'idle'
+				// Only "In Meeting": "connecting" and other transient states are not in a meeting yet.
+				return isInMeetingStatus(room.meetingStatus)
 			},
 		},
 

@@ -1,6 +1,7 @@
 import type { CompanionActionDefinition } from '@companion-module/base'
 import type { ZoomRoomsInstance } from '../utils.js'
-import { ROOM_TARGET_OPTIONS, buildRoomPath, getRoomTarget, roomCommand } from './action-room-utils.js'
+import { ROOM_TARGET_OPTIONS, buildRoomPath, getRoomTarget, resolveRoomIDs, roomCommand } from './action-room-utils.js'
+import { normalizeMeetingId } from './action-gallery.js'
 
 export enum ActionIdJoinFlow {
 	joinMeeting = 'joinMeeting',
@@ -41,6 +42,15 @@ export function GetActionsJoinFlow(instance: ZoomRoomsInstance): {
 						typeof opt.meetingPass === 'string' ? opt.meetingPass : '',
 						typeof opt.userName === 'string' ? opt.userName : '',
 					])
+					// Remember the ID so the gallery seat actions can use it for this meeting.
+					const meetingId = normalizeMeetingId(opt.meetingID)
+					if (meetingId) {
+						for (const roomID of resolveRoomIDs(instance, targetType, roomArg)) {
+							instance.state.rooms[roomID] ??= { roomID, roomName: '', roomIndex: 0 }
+							instance.state.rooms[roomID].meetingId = meetingId
+						}
+						instance.updateVariableValues()
+					}
 				} catch (e) {
 					instance.log('error', `Error for joinMeeting. ${e instanceof Error ? e.message : String(e)}`)
 				}
@@ -75,7 +85,8 @@ export function GetActionsJoinFlow(instance: ZoomRoomsInstance): {
 				...ROOM_TARGET_OPTIONS.map((opt) => ({
 					...opt,
 					isVisible: (o: Record<string, unknown>) =>
-						o.scope === 'target' && ('isVisible' in opt ? (opt.isVisible as (o: Record<string, unknown>) => boolean)(o) : true),
+						o.scope === 'target' &&
+						('isVisible' in opt ? (opt.isVisible as (o: Record<string, unknown>) => boolean)(o) : true),
 				})),
 			],
 			callback: (action) => {

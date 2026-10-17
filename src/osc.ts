@@ -2,7 +2,8 @@ import { InstanceStatus } from '@companion-module/base'
 import type { CompanionVariableValues } from '@companion-module/base'
 import { UDPPort } from 'osc'
 import type { OscArgument } from 'osc'
-import type { ZoomRoomsInstance } from './utils.js'
+import type { ZoomRoomsInstance, RoomState } from './utils.js'
+import { isInMeetingStatus, isOutOfMeetingStatus } from './utils.js'
 import {
 	updateAddedRoomsCount,
 	updatePairedRoomsCount,
@@ -11,19 +12,39 @@ import {
 } from './variables/variable-values.js'
 import { FeedbackIdRoomStatus } from './feedbacks/feedback-room-status.js'
 import { FeedbackIdChannelStatus } from './feedbacks/feedback-channels.js'
+import { FeedbackIdGallery } from './feedbacks/feedback-gallery.js'
 
 const JOIN_COOLDOWN_MS = 10_000
 const STALENESS_CHECK_MS = 10_000
+const ROOM_LIST_RECOVERY_MS = 10_000
+/** Gap between getHWIOChannelConfig requests, so each reply can be matched to its channel number. */
+const ROUTING_REQUEST_GAP_MS = 150
+
+/** sendCommand argument; numbers are sent as int unless wrapped as { type: 'f' }. */
+export type OscSendArg = string | number | boolean | { type: 'f'; value: number }
+
+interface SeatBuffer {
+	size: number
+	lastIndex: number
+	seats: Map<number, string>
+}
 
 export class OSC {
 	private readonly instance: ZoomRoomsInstance
 	private udpPort: UDPPort | null = null
-	private pollInterval: ReturnType<typeof setInterval> | null = null
+	private pollTimers: ReturnType<typeof setInterval>[] = []
+	private routingTimers: ReturnType<typeof setTimeout>[] = []
 	private roomListInterval: ReturnType<typeof setInterval> | null = null
 	private stalenessInterval: ReturnType<typeof setInterval> | null = null
 	private lastHeardAt: number = Date.now()
 	private staleWarned = false
 	private lastJoinAttempt: Map<string, number> = new Map()
+	private lastPairedListIndex = Number.MAX_SAFE_INTEGER
+	private lastAddedListIndex = Number.MAX_SAFE_INTEGER
+	private lastRoomListRecovery = 0
+	private routingPending: Set<string> = new Set()
+	private routingQueue: Map<string, number[]> = new Map()
+	private seatBuffers: Map<string, SeatBuffer> = new Map()
 
 	constructor(instance: ZoomRoomsInstance) {
 		this.instance = instance
@@ -52,18 +73,82 @@ export class OSC {
 		return last === undefined || Date.now() - last >= JOIN_COOLDOWN_MS
 	}
 
-	/**
-	 * Request the live per-room data that changes during a meeting:
-	 * participant count and meeting status, addressed by room ID, plus a
-	 * paired-room-list refresh so lost UDP replies can recover.
-	 */
-	public pollOnce(): void {
-		this.sendCommand('/zoomRooms/getPairedRoomList', [])
-		for (const room of this.instance.state.pairedRooms) {
-			if (!room.roomID) continue
-			this.sendCommand('/zoomRooms/roomID/getParticipantCount', [room.roomID])
-			this.sendCommand('/zoomRooms/roomID/getMeetingStatus', [room.roomID])
+	private roomGet(roomID: string, command: string, args: OscSendArg[] = []): void {
+		this.sendCommand(`/zoomRooms/roomID/${command}`, [roomID, ...args])
+	}
+
+	private pairedRoomIDs(): string[] {
+		return this.instance.state.pairedRooms.map((r) => r.roomID).filter(Boolean)
+	}
+
+	/** In-meeting data is asked for while the room is in a meeting, or when its status is unknown. */
+	private mayBeInMeeting(roomID: string): boolean {
+		const status = this.instance.state.rooms[roomID]?.meetingStatus
+		return status === undefined || isInMeetingStatus(status)
+	}
+
+	public pollMeetingStatus(): void {
+		for (const id of this.pairedRoomIDs()) this.roomGet(id, 'getMeetingStatus')
+	}
+
+	public pollParticipantCount(): void {
+		for (const id of this.pairedRoomIDs()) {
+			if (this.mayBeInMeeting(id)) this.roomGet(id, 'getParticipantCount')
 		}
+	}
+
+	public pollGallerySeats(): void {
+		for (const id of this.pairedRoomIDs()) {
+			if (this.mayBeInMeeting(id)) this.roomGet(id, 'getMeetingGalleryOrder')
+		}
+	}
+
+	public refreshGallerySettings(roomID?: string): void {
+		for (const id of roomID ? [roomID] : this.pairedRoomIDs()) {
+			this.roomGet(id, 'getGalleryDistributionMode')
+			this.roomGet(id, 'getHWIOGalleryGridSize')
+			this.roomGet(id, 'getGalleryExcludeOptions')
+		}
+	}
+
+	/** Ask for the HWIO channel count; the reply triggers one config request per channel. */
+	public refreshChannelRouting(roomID?: string): void {
+		for (const id of roomID ? [roomID] : this.pairedRoomIDs()) {
+			this.routingPending.add(id)
+			this.roomGet(id, 'getHWIOChannelCount')
+		}
+	}
+
+	/** Everything the module can ask for, once. Used by the "Refresh all now" action. */
+	public refreshAll(): void {
+		this.requestRoomLists()
+		this.pollMeetingStatus()
+		for (const id of this.pairedRoomIDs()) {
+			this.roomGet(id, 'getParticipantCount')
+			this.roomGet(id, 'getMeetingGalleryOrder')
+		}
+		this.refreshGallerySettings()
+		this.refreshChannelRouting()
+	}
+
+	/** First data for a newly paired room: run the "on connect" queries for it. */
+	private onRoomDiscovered(roomID: string): void {
+		const c = this.instance.config
+		if ((c.pollMeetingStatus ?? 0) !== 0) this.roomGet(roomID, 'getMeetingStatus')
+		if ((c.pollGallerySettings ?? 0) !== 0) this.refreshGallerySettings(roomID)
+		if ((c.pollChannelRouting ?? 0) !== 0) this.refreshChannelRouting(roomID)
+	}
+
+	private startPolling(): void {
+		const c = this.instance.config
+		const every = (ms: number | undefined, fn: () => void) => {
+			if (ms && ms > 0) this.pollTimers.push(setInterval(fn, ms))
+		}
+		every(c.pollMeetingStatus, () => this.pollMeetingStatus())
+		every(c.pollParticipantCount, () => this.pollParticipantCount())
+		every(c.pollGallerySeats, () => this.pollGallerySeats())
+		every(c.pollGallerySettings, () => this.refreshGallerySettings())
+		every(c.pollChannelRouting, () => this.refreshChannelRouting())
 	}
 
 	/** Request both room lists. Called on connect and on the optional slow timer. */
@@ -84,10 +169,11 @@ export class OSC {
 		}
 	}
 
-	public sendCommand(path: string, args: (string | number | boolean)[] = []): void {
+	public sendCommand(path: string, args: OscSendArg[] = []): void {
 		this.instance.log('debug', `Sending OSC command: ${path} ${JSON.stringify(args)}`)
 		if (!this.udpPort) return
 		const oscArgs = args.map((a) => {
+			if (typeof a === 'object') return a
 			if (typeof a === 'boolean') return { type: 'i', value: a ? 1 : 0 }
 			if (typeof a === 'number') return Number.isInteger(a) ? { type: 'i', value: a } : { type: 'f', value: a }
 			return { type: 's', value: String(a) }
@@ -136,14 +222,7 @@ export class OSC {
 				this.instance.updateStatus(InstanceStatus.Ok, `Listening for CAVZRC OSC on port ${rxPort}`)
 
 				this.requestRoomLists()
-
-				if (this.instance.config.pollInterval && this.instance.config.pollInterval > 0) {
-					this.pollInterval = setInterval(() => {
-						this.pollOnce()
-					}, this.instance.config.pollInterval ?? 1000)
-				} else {
-					this.instance.log('info', 'Polling for room data is disabled (pollInterval is 0)')
-				}
+				this.startPolling()
 
 				const listInterval = this.instance.config.roomListInterval
 				if (listInterval && listInterval > 0) {
@@ -200,13 +279,16 @@ export class OSC {
 			}
 			return
 		}
-		if (path === 'addedRoomList') {
+		if (path === 'addedRoomList' || path === 'addedRoomsList') {
 			const maxList = this.argInt(args, 0)
 			const thisIndex = this.argInt(args, 1)
 			const roomID = this.argStr(args, 2)
 			const roomName = this.argStr(args, 3)
 			state.addedRoomsCount = maxList ?? 0
 			if (roomID !== undefined && roomName !== undefined && thisIndex !== undefined) {
+				// A list is resent from index 1: start over so removed rooms drop out.
+				if (thisIndex <= this.lastAddedListIndex) state.addedRooms.length = 0
+				this.lastAddedListIndex = thisIndex
 				const exists = state.addedRooms.some((r) => r.roomID === roomID)
 				if (!exists) {
 					state.addedRooms.push({ roomID, roomName, roomIndex: thisIndex })
@@ -218,7 +300,7 @@ export class OSC {
 			}
 			return
 		}
-		if (path === 'pairedRoomList') {
+		if (path === 'pairedRoomList' || path === 'pairedRoomsList') {
 			const maxList = this.argInt(args, 0)
 			const thisIndex = this.argInt(args, 1)
 			const roomID = this.argStr(args, 2)
@@ -226,10 +308,14 @@ export class OSC {
 			state.pairedRoomsCount = maxList ?? 0
 
 			if (roomID !== undefined && roomName !== undefined && thisIndex !== undefined) {
+				const known = new Set(state.pairedRooms.map((r) => r.roomID))
+				if (thisIndex <= this.lastPairedListIndex) state.pairedRooms.length = 0
+				this.lastPairedListIndex = thisIndex
 				const exists = state.pairedRooms.some((r) => r.roomID === roomID)
 				if (!exists) {
 					state.pairedRooms.push({ roomID, roomName, roomIndex: thisIndex })
 				}
+				if (!known.has(roomID)) this.onRoomDiscovered(roomID)
 				const variables: CompanionVariableValues = {}
 				updatePairedRoomsList(this.instance, variables)
 				updatePairedRoomsCount(this.instance, variables)
@@ -251,17 +337,42 @@ export class OSC {
 			const room = state.rooms[key]
 			if (roomName !== undefined) room.roomName = roomName
 			if (roomIndex !== undefined) room.roomIndex = roomIndex
+			this.recoverUnknownRoom(roomID)
 
 			if (path === 'meetingStatus') {
+				const previous = room.meetingStatus
+				const wasInMeeting = isInMeetingStatus(previous)
 				room.meetingStatus = this.argStr(args, 3)
 				const status = (room.meetingStatus || '').toLowerCase()
 				if (status !== '' && status !== 'not in meeting' && status !== 'idle') {
 					this.lastJoinAttempt.clear()
 				}
+				const inMeeting = isInMeetingStatus(room.meetingStatus)
+				// Ended = left a meeting (or a join attempt) for idle; a repeated "idle" keeps a freshly joined ID.
+				if (previous !== undefined && !isOutOfMeetingStatus(previous) && isOutOfMeetingStatus(room.meetingStatus)) {
+					this.onMeetingEnded(room)
+				}
+				if (!wasInMeeting && inMeeting) this.onMeetingStarted(roomID)
 				this.instance.updateVariableValues()
-				this.instance.checkFeedbacks(FeedbackIdRoomStatus.InMeeting)
+				this.instance.checkFeedbacks(FeedbackIdRoomStatus.InMeeting, FeedbackIdGallery.GhostSeats)
 			} else if (path === 'participantCount') {
 				room.participantCount = this.argInt(args, 3)
+				this.instance.updateVariableValues()
+				this.instance.checkFeedbacks(FeedbackIdGallery.GhostSeats)
+			} else if (path === 'meetingGalleryOrder') {
+				this.handleGallerySeat(room, args)
+			} else if (path === 'galleryDistributionMode') {
+				room.galleryMode = this.argStr(args, 3)
+				this.instance.updateVariableValues()
+				this.instance.checkFeedbacks(FeedbackIdGallery.GalleryMode)
+			} else if (path === 'galleryGridSizeHWIO') {
+				room.galleryGridRows = this.argInt(args, 3)
+				room.galleryGridCols = this.argInt(args, 4)
+				this.instance.updateVariableValues()
+			} else if (path === 'galleryExcludeOptions') {
+				room.excludeSelf = this.argBool(args, 3)
+				room.excludeHostCoHost = this.argBool(args, 4)
+				room.excludeNonVideo = this.argBool(args, 5)
 				this.instance.updateVariableValues()
 			} else if (path === 'muteStatus') {
 				const v = args[3]
@@ -288,6 +399,7 @@ export class OSC {
 			} else if (path === 'channelCountHWIO') {
 				room.hwioChannelCount = this.argInt(args, 3) ?? 0
 				this.instance.updateVariableValues()
+				if (this.routingPending.delete(roomID)) this.requestChannelConfigs(roomID, room.hwioChannelCount)
 			} else if (path === 'channelCountDante') {
 				room.danteChannelCount = this.argInt(args, 3) ?? 0
 				this.instance.updateVariableValues()
@@ -310,7 +422,13 @@ export class OSC {
 				// str resolution_fps, int audio_mix
 				const isActive = this.argBool(args, 3)
 				const channelName = this.argStr(args, 4)
+				const requested = this.routingQueue.get(roomID)?.shift()
 				if (channelName !== undefined && channelName !== '') {
+					if (requested !== undefined) {
+						room.hwioChannelNumbers ??= {}
+						if (room.hwioChannelNumbers[channelName] === undefined) this.instance.refreshVariableDefinitions()
+						room.hwioChannelNumbers[channelName] = requested
+					}
 					room.hwioChannels ??= {}
 					if (!room.hwioChannels[channelName]) this.instance.refreshVariableDefinitions()
 					room.hwioChannels[channelName] = {
@@ -323,7 +441,10 @@ export class OSC {
 						audioMix: this.argInt(args, 9) ?? 0,
 					}
 					this.instance.updateVariableValues()
-					this.instance.checkFeedbacks(FeedbackIdChannelStatus.HwioChannelActive, FeedbackIdChannelStatus.HwioChannelSelection)
+					this.instance.checkFeedbacks(
+						FeedbackIdChannelStatus.HwioChannelActive,
+						FeedbackIdChannelStatus.HwioChannelSelection,
+					)
 				}
 			} else if (path === 'channelConfigDante') {
 				// int index, int status, str content, str selection, str signal
@@ -340,6 +461,69 @@ export class OSC {
 					this.instance.updateVariableValues()
 				}
 			}
+		}
+	}
+
+	/** A reply from a room missing in the paired list means the list is stale: re-request it (throttled). */
+	private recoverUnknownRoom(roomID: string): void {
+		if (this.instance.state.pairedRooms.some((r) => r.roomID === roomID)) return
+		const now = Date.now()
+		if (now - this.lastRoomListRecovery < ROOM_LIST_RECOVERY_MS) return
+		this.lastRoomListRecovery = now
+		this.requestRoomLists()
+	}
+
+	private onMeetingStarted(roomID: string): void {
+		if ((this.instance.config.pollParticipantCount ?? 0) !== 0) this.roomGet(roomID, 'getParticipantCount')
+		if ((this.instance.config.pollGallerySeats ?? 0) !== 0) this.roomGet(roomID, 'getMeetingGalleryOrder')
+	}
+
+	/** The meeting ID and seat list belong to the meeting that just ended. */
+	private onMeetingEnded(room: RoomState): void {
+		room.meetingId = undefined
+		room.gallerySeats = undefined
+		room.participantCount = undefined
+		this.seatBuffers.delete(room.roomID)
+	}
+
+	/** meetingGalleryOrder arrives as one message per seat: gallery_size, seat_index, name. */
+	private handleGallerySeat(room: RoomState, args: OscArgument[]): void {
+		const size = this.argInt(args, 3) ?? 0
+		const index = this.argInt(args, 4)
+		const name = this.argStr(args, 5) ?? ''
+		if (size <= 0 || index === undefined) {
+			room.gallerySeats = []
+			this.seatBuffers.delete(room.roomID)
+		} else {
+			let buf = this.seatBuffers.get(room.roomID)
+			if (!buf || index <= buf.lastIndex || buf.size !== size) {
+				buf = { size, lastIndex: 0, seats: new Map() }
+				this.seatBuffers.set(room.roomID, buf)
+			}
+			buf.lastIndex = index
+			buf.seats.set(index, name)
+			if (buf.seats.size < size) return
+			room.gallerySeats = [...buf.seats.entries()].sort((a, b) => a[0] - b[0]).map(([, n]) => n)
+			this.seatBuffers.delete(room.roomID)
+		}
+		this.instance.updateVariableValues()
+		this.instance.checkFeedbacks(FeedbackIdGallery.GhostSeats)
+	}
+
+	/** One getHWIOChannelConfig per channel, spaced out so each reply maps to its channel number. */
+	private requestChannelConfigs(roomID: string, count: number): void {
+		const queue: number[] = []
+		this.routingQueue.set(roomID, queue)
+		for (let ch = 1; ch <= count; ch++) {
+			this.routingTimers.push(
+				setTimeout(
+					() => {
+						queue.push(ch)
+						this.roomGet(roomID, 'getHWIOChannelConfig', [ch])
+					},
+					(ch - 1) * ROUTING_REQUEST_GAP_MS,
+				),
+			)
 		}
 	}
 
@@ -400,10 +584,10 @@ export class OSC {
 	}
 
 	public destroy(): void {
-		if (this.pollInterval !== null) {
-			clearInterval(this.pollInterval)
-			this.pollInterval = null
-		}
+		for (const t of this.pollTimers) clearInterval(t)
+		this.pollTimers = []
+		for (const t of this.routingTimers) clearTimeout(t)
+		this.routingTimers = []
 		if (this.roomListInterval !== null) {
 			clearInterval(this.roomListInterval)
 			this.roomListInterval = null

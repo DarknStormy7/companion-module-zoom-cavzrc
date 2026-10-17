@@ -1,8 +1,32 @@
 import type { CompanionVariableValues } from '@companion-module/base'
 import type { ZoomRoomsInstance } from '../utils.js'
+import { ghostSeatCount } from '../utils.js'
 import { channelSlug } from './variable-definitions.js'
 
 const MAX_ROOM_SLOTS = 10
+const ROOM_SLOT_FIELDS = [
+	'id',
+	'cavzrc_index',
+	'name',
+	'meeting_status',
+	'participant_count',
+	'mute',
+	'camera',
+	'ndi_count',
+	'hwio_count',
+	'dante_count',
+	'meeting_id',
+	'gallery_mode',
+	'gallery_seats',
+	'gallery_ghosts',
+	'gallery_names',
+	'grid_size',
+	'exclude_self',
+	'exclude_hosts',
+	'exclude_no_video',
+]
+
+const yesNo = (v: boolean | undefined) => (v === true ? 'Yes' : v === false ? 'No' : '—')
 
 export function updateAddedRoomsCount(instance: ZoomRoomsInstance, variables: CompanionVariableValues): void {
 	variables['added_rooms_count'] = instance.state.addedRoomsCount
@@ -58,6 +82,18 @@ export function updateVariableValues(instance: ZoomRoomsInstance): void {
 		variables[`room_${n}_ndi_count`] = room?.ndiChannelCount ?? '—'
 		variables[`room_${n}_hwio_count`] = room?.hwioChannelCount ?? '—'
 		variables[`room_${n}_dante_count`] = room?.danteChannelCount ?? '—'
+		variables[`room_${n}_meeting_id`] = room?.meetingId || '—'
+		variables[`room_${n}_gallery_mode`] = room?.galleryMode || '—'
+		variables[`room_${n}_gallery_seats`] = room?.gallerySeats?.length ?? '—'
+		variables[`room_${n}_gallery_ghosts`] = ghostSeatCount(room) ?? '—'
+		variables[`room_${n}_gallery_names`] = room?.gallerySeats?.join(', ') || '—'
+		variables[`room_${n}_grid_size`] =
+			room?.galleryGridRows !== undefined && room.galleryGridCols !== undefined
+				? `${room.galleryGridRows}x${room.galleryGridCols}`
+				: '—'
+		variables[`room_${n}_exclude_self`] = yesNo(room?.excludeSelf)
+		variables[`room_${n}_exclude_hosts`] = yesNo(room?.excludeHostCoHost)
+		variables[`room_${n}_exclude_no_video`] = yesNo(room?.excludeNonVideo)
 
 		// Channel detail values (definitions are refreshed by osc.ts when a
 		// new channel key first appears; values are written on every update).
@@ -76,6 +112,8 @@ export function updateVariableValues(instance: ZoomRoomsInstance): void {
 				variables[`room_${n}_hwio_${s}_selection`] = ch.selection || '—'
 				variables[`room_${n}_hwio_${s}_resolution_fps`] = ch.resolutionFps || '—'
 				variables[`room_${n}_hwio_${s}_audio_mix`] = ch.audioMix
+				const channelNumber = room.hwioChannelNumbers?.[name]
+				if (channelNumber !== undefined) variables[`room_${n}_hwio_${s}_channel`] = channelNumber
 			}
 			for (const [idx, ch] of Object.entries(room.danteChannels ?? {})) {
 				variables[`room_${n}_dante_${idx}_status`] = ch.status
@@ -89,16 +127,7 @@ export function updateVariableValues(instance: ZoomRoomsInstance): void {
 	// Clear slots above the current room count so removed/unpaired rooms
 	// do not leave stale variables behind.
 	for (let k = sorted.length + 1; k <= MAX_ROOM_SLOTS; k++) {
-		variables[`room_${k}_id`] = '—'
-		variables[`room_${k}_cavzrc_index`] = '—'
-		variables[`room_${k}_name`] = '—'
-		variables[`room_${k}_meeting_status`] = '—'
-		variables[`room_${k}_participant_count`] = '—'
-		variables[`room_${k}_mute`] = '—'
-		variables[`room_${k}_camera`] = '—'
-		variables[`room_${k}_ndi_count`] = '—'
-		variables[`room_${k}_hwio_count`] = '—'
-		variables[`room_${k}_dante_count`] = '—'
+		for (const field of ROOM_SLOT_FIELDS) variables[`room_${k}_${field}`] = '—'
 	}
 
 	instance.setVariableValues(variables)

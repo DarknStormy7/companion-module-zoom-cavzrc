@@ -13,6 +13,7 @@ import { ActionIdActiveSpeaker, GetActionsActiveSpeaker } from './actions/action
 import { ActionIdCavzrcControl, GetActionsCavzrcControl } from './actions/action-cavzrc-control.js'
 import { ActionIdGlobal, GetActionsGlobal } from './actions/action-global.js'
 import { ActionIdCompanion, GetActionsCompanion } from './actions/action-companion.js'
+import { ActionIdGallery, GetActionsGallery } from './actions/action-gallery.js'
 
 export function GetActions(instance: ZoomRoomsInstance): CompanionActionDefinitions {
 	const actionsJoinFlow: { [id in ActionIdJoinFlow]: CompanionActionDefinition | undefined } =
@@ -37,22 +38,26 @@ export function GetActions(instance: ZoomRoomsInstance): CompanionActionDefiniti
 	const actionsGlobal: { [id in ActionIdGlobal]: CompanionActionDefinition | undefined } = GetActionsGlobal(instance)
 	const actionsCompanion: { [id in ActionIdCompanion]: CompanionActionDefinition | undefined } =
 		GetActionsCompanion(instance)
+	const actionsGallery: { [id in ActionIdGallery]: CompanionActionDefinition | undefined } = GetActionsGallery(instance)
 
 	const actions: {
-		[id in
-			| ActionIdJoinFlow
-			| ActionIdNDI
-			| ActionIdHWIO
-			| ActionIdDante
-			| ActionIdDeviceSettings
-			| ActionIdOverlays
-			| ActionIdContentShare
-			| ActionIdRoomInfo
-			| ActionIdCameraControl
-			| ActionIdActiveSpeaker
-			| ActionIdCavzrcControl
-			| ActionIdGlobal
-			| ActionIdCompanion]: CompanionActionDefinition | undefined
+		[
+			id in
+				| ActionIdJoinFlow
+				| ActionIdNDI
+				| ActionIdHWIO
+				| ActionIdDante
+				| ActionIdDeviceSettings
+				| ActionIdOverlays
+				| ActionIdContentShare
+				| ActionIdRoomInfo
+				| ActionIdCameraControl
+				| ActionIdActiveSpeaker
+				| ActionIdCavzrcControl
+				| ActionIdGlobal
+				| ActionIdCompanion
+				| ActionIdGallery
+		]: CompanionActionDefinition | undefined
 	} = {
 		...actionsJoinFlow,
 		...actionsNDI,
@@ -67,6 +72,7 @@ export function GetActions(instance: ZoomRoomsInstance): CompanionActionDefiniti
 		...actionsCavzrcControl,
 		...actionsGlobal,
 		...actionsCompanion,
+		...actionsGallery,
 	}
 
 	return actions

@@ -29,13 +29,20 @@ export function GetVariableDefinitions(instance: ZoomRoomsInstance): CompanionVa
 		definitions.push({ variableId: `room_${n}_ndi_count`, name: `Room ${n} NDI channel count` })
 		definitions.push({ variableId: `room_${n}_hwio_count`, name: `Room ${n} HWIO channel count` })
 		definitions.push({ variableId: `room_${n}_dante_count`, name: `Room ${n} Dante channel count` })
+		definitions.push({ variableId: `room_${n}_meeting_id`, name: `Room ${n} meeting ID (from Join or Set meeting ID)` })
+		definitions.push({ variableId: `room_${n}_gallery_mode`, name: `Room ${n} gallery distribution mode` })
+		definitions.push({ variableId: `room_${n}_gallery_seats`, name: `Room ${n} gallery named seats` })
+		definitions.push({ variableId: `room_${n}_gallery_ghosts`, name: `Room ${n} gallery "not joined" seats` })
+		definitions.push({ variableId: `room_${n}_gallery_names`, name: `Room ${n} gallery seat names` })
+		definitions.push({ variableId: `room_${n}_grid_size`, name: `Room ${n} HWIO gallery grid size` })
+		definitions.push({ variableId: `room_${n}_exclude_self`, name: `Room ${n} gallery excludes self` })
+		definitions.push({ variableId: `room_${n}_exclude_hosts`, name: `Room ${n} gallery excludes hosts/co-hosts` })
+		definitions.push({ variableId: `room_${n}_exclude_no_video`, name: `Room ${n} gallery excludes no-video` })
 	}
 
 	// Channel detail variables are derived from what CAVZRC has actually
 	// reported, keyed by the room's positional slot (1..N by sorted index).
-	const slots = [...instance.state.pairedRooms].sort(
-		(a, b) => (a.roomIndex ?? 11) - (b.roomIndex ?? 11),
-	)
+	const slots = [...instance.state.pairedRooms].sort((a, b) => (a.roomIndex ?? 11) - (b.roomIndex ?? 11))
 	slots.forEach((info, position) => {
 		const n = position + 1
 		if (n > 10) return
@@ -60,6 +67,9 @@ export function GetVariableDefinitions(instance: ZoomRoomsInstance): CompanionVa
 				name: `Room ${n} HWIO ${name} resolution/fps`,
 			})
 			definitions.push({ variableId: `room_${n}_hwio_${s}_audio_mix`, name: `Room ${n} HWIO ${name} audio mix` })
+			if (room.hwioChannelNumbers?.[name] !== undefined) {
+				definitions.push({ variableId: `room_${n}_hwio_${s}_channel`, name: `Room ${n} HWIO ${name} channel number` })
+			}
 			void ch
 		}
 		for (const [idx, ch] of Object.entries(room.danteChannels ?? {})) {

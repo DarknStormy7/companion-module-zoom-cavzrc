@@ -50,6 +50,18 @@ export interface RoomState {
 	ndiChannels?: Record<number, NdiChannelConfig>
 	hwioChannels?: Record<string, HwioChannelConfig>
 	danteChannels?: Record<number, DanteChannelConfig>
+	/** Meeting ID last sent with "Join meeting" or "Gallery: Set meeting ID"; cleared when the meeting ends. */
+	meetingId?: string
+	galleryMode?: string
+	/** Seat names in seat order (seat 1 is usually the room itself), ghosts included. */
+	gallerySeats?: string[]
+	galleryGridRows?: number
+	galleryGridCols?: number
+	excludeSelf?: boolean
+	excludeHostCoHost?: boolean
+	excludeNonVideo?: boolean
+	/** HWIO channel number each channel name was last read from (filled by the routing refresh). */
+	hwioChannelNumbers?: Record<string, number>
 	overlayConfig?: {
 		namePosition: number
 		showNametag: boolean
@@ -57,6 +69,23 @@ export interface RoomState {
 		showHand: boolean
 		showBorder: boolean
 	}
+}
+
+/** CAVZRC meeting status strings vary in case and spacing ("In Meeting", "in_meeting"). */
+export function isInMeetingStatus(status: string | undefined): boolean {
+	return (status ?? '').toLowerCase().replace(/[\s_-]/g, '') === 'inmeeting'
+}
+
+/** Idle states. "connecting" is neither in nor out of a meeting. */
+export function isOutOfMeetingStatus(status: string | undefined): boolean {
+	const s = (status ?? '').toLowerCase().replace(/[\s_-]/g, '')
+	return s === 'idle' || s === 'notinmeeting'
+}
+
+/** Ghost ("not joined") seats: named seats beyond the participants plus the room's own seat. */
+export function ghostSeatCount(room: RoomState | undefined): number | undefined {
+	if (!room?.gallerySeats || room.participantCount === undefined) return undefined
+	return Math.max(0, room.gallerySeats.length - room.participantCount - 1)
 }
 
 export interface CavzrcState {

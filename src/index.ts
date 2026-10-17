@@ -16,7 +16,11 @@ class ZoomRoomsInstanceImpl extends InstanceBase<ZoomRoomsConfig> implements Zoo
 		tx_port: 9090,
 		rx_port: 1234,
 		oscOutputHeader: '/roomosc',
-		pollInterval: 1000,
+		pollMeetingStatus: 5000,
+		pollParticipantCount: 2500,
+		pollGallerySeats: 10000,
+		pollGallerySettings: 30000,
+		pollChannelRouting: -1,
 		roomListInterval: 0,
 		stalenessTimeoutSec: 60,
 	}

@@ -1,6 +1,7 @@
 import type { SomeCompanionActionInputField } from '@companion-module/base'
 import type { ZoomRoomsInstance } from '../utils.js'
 import type { TargetType } from '../utils.js'
+import type { OscSendArg } from '../osc.js'
 
 export const ROOM_TARGET_OPTIONS: SomeCompanionActionInputField[] = [
 	{
@@ -111,7 +112,7 @@ export function roomCommand(instance: ZoomRoomsInstance, command: string, extraA
 export function roomCommandWithOpts(
 	instance: ZoomRoomsInstance,
 	command: string,
-	getExtra: (opt: Record<string, unknown>) => (string | number)[],
+	getExtra: (opt: Record<string, unknown>) => OscSendArg[],
 ) {
 	return (action: { options: Record<string, unknown> }) => {
 		try {
@@ -123,4 +124,17 @@ export function roomCommandWithOpts(
 			instance.log('error', `Error for ${command}.  ${e instanceof Error ? e.message : String(e)}`)
 		}
 	}
+}
+
+/** Paired room IDs a target refers to, for state that the module keeps per room. */
+export function resolveRoomIDs(
+	instance: ZoomRoomsInstance,
+	targetType: TargetType,
+	roomArg: string | number | undefined,
+): string[] {
+	const rooms = instance.state.pairedRooms
+	if (targetType === 'roomID') return typeof roomArg === 'string' && roomArg ? [roomArg] : []
+	if (targetType === 'roomName') return rooms.filter((r) => r.roomName === roomArg).map((r) => r.roomID)
+	if (targetType === 'roomIndex') return rooms.filter((r) => r.roomIndex === roomArg).map((r) => r.roomID)
+	return rooms.map((r) => r.roomID)
 }

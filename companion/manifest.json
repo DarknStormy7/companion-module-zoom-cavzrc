@@ -3,7 +3,7 @@
 	"name": "zoom-cavzrc",
 	"shortname": "cavzrc",
 	"description": "Control Zoom Rooms via Custom AV Zoom Room Controller",
-	"version": "0.5.2",
+	"version": "0.6.0",
 	"license": "MIT",
 	"repository": "https://github.com/bitfocus/companion-module-zoom-cavzrc",
 	"bugs": "https://github.com/bitfocus/companion-module-zoom-cavzrc/issues",
