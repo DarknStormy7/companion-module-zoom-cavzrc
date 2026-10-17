@@ -80,6 +80,30 @@ const CHANNELS_OPTION: SomeCompanionActionInputField = {
 	useVariables: true,
 }
 
+const SETTLE_OPTION: SomeCompanionActionInputField = {
+	type: 'number',
+	label: 'Wait after the grid change before the first channel (ms)',
+	id: 'settleMs',
+	default: GRID_SETTLE_MS,
+	min: 0,
+	max: 10000,
+}
+
+const GAP_OPTION: SomeCompanionActionInputField = {
+	type: 'number',
+	label: 'Wait between channels (ms)',
+	id: 'gapMs',
+	default: ASPECT_GAP_MS,
+	min: 0,
+	max: 10000,
+}
+
+/** A delay option, falling back to its default when blank or invalid (0 is allowed). */
+function delayMs(value: unknown, fallback: number): number {
+	const n = Number(value)
+	return value === undefined || value === '' || !Number.isFinite(n) || n < 0 ? fallback : n
+}
+
 const OUTPUT_WIDTH_OPTION: SomeCompanionActionInputField = {
 	type: 'number',
 	label: 'Output width',
@@ -105,6 +129,7 @@ function sendAspectRatios(
 	channels: number[],
 	aspect: number,
 	startDelayMs: number,
+	gapMs: number,
 ): void {
 	if (channels.length === 0) {
 		instance.log('warn', 'Set tile aspect ratio: no channels listed')
@@ -116,7 +141,7 @@ function sendAspectRatios(
 				roomCommandWithOpts(instance, 'setHWIOAspectRatio', () => [ch, { type: 'f', value: aspect }])(action)
 				roomCommandWithOpts(instance, 'getHWIOLayoutSettings', () => [ch])(action)
 			},
-			startDelayMs + i * ASPECT_GAP_MS,
+			startDelayMs + i * gapMs,
 		)
 	})
 }
@@ -347,6 +372,8 @@ export function GetActionsGallery(instance: ZoomRoomsInstance): {
 				{ type: 'number', label: 'Columns', id: 'cols', default: 1, min: 1, max: 10 },
 				{ type: 'checkbox', label: 'Also set the matching tile aspect ratio', id: 'setAspect', default: false },
 				{ ...CHANNELS_OPTION, isVisible: (o) => !!o.setAspect },
+				{ ...SETTLE_OPTION, isVisible: (o) => !!o.setAspect },
+				{ ...GAP_OPTION, isVisible: (o) => !!o.setAspect },
 				{ ...OUTPUT_WIDTH_OPTION, isVisible: (o) => !!o.setAspect },
 				{ ...OUTPUT_HEIGHT_OPTION, isVisible: (o) => !!o.setAspect },
 			],
@@ -358,7 +385,14 @@ export function GetActionsGallery(instance: ZoomRoomsInstance): {
 				roomCommand(instance, 'getHWIOGalleryGridSize')(action)
 				if (o.setAspect) {
 					const aspect = tileAspectRatio(rows, cols, Number(o.width) || 1920, Number(o.height) || 1080)
-					sendAspectRatios(instance, action, parseChannelList(o.channels), aspect, GRID_SETTLE_MS)
+					sendAspectRatios(
+						instance,
+						action,
+						parseChannelList(o.channels),
+						aspect,
+						delayMs(o.settleMs, GRID_SETTLE_MS),
+						delayMs(o.gapMs, ASPECT_GAP_MS),
+					)
 				}
 			},
 		},
@@ -370,6 +404,7 @@ export function GetActionsGallery(instance: ZoomRoomsInstance): {
 			options: [
 				...ROOM_TARGET_OPTIONS,
 				CHANNELS_OPTION,
+				GAP_OPTION,
 				{
 					type: 'dropdown',
 					label: 'Aspect ratio',
@@ -423,7 +458,7 @@ export function GetActionsGallery(instance: ZoomRoomsInstance): {
 					aspect = ASPECT_PRESETS.find((p) => p.id === o.preset)?.value
 				}
 				if (!aspect) return
-				sendAspectRatios(instance, action, parseChannelList(o.channels), aspect, 0)
+				sendAspectRatios(instance, action, parseChannelList(o.channels), aspect, 0, delayMs(o.gapMs, ASPECT_GAP_MS))
 			},
 		},
 

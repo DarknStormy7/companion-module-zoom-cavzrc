@@ -261,6 +261,28 @@ describe('gallery actions', () => {
 			])
 		})
 
+		it('uses the delays set in the action', () => {
+			invoke(actions.setHWIOGalleryGridSize, {
+				targetType: 'roomIndex',
+				roomIndex: '1',
+				rows: 1,
+				cols: 2,
+				setAspect: true,
+				channels: '1,3',
+				settleMs: 1000,
+				gapMs: 2000,
+			})
+			const aspectSends = () => send.mock.calls.filter((c) => String(c[0]).endsWith('setHWIOAspectRatio')).length
+			jest.advanceTimersByTime(999)
+			expect(aspectSends()).toBe(0)
+			jest.advanceTimersByTime(1)
+			expect(aspectSends()).toBe(1)
+			jest.advanceTimersByTime(1999)
+			expect(aspectSends()).toBe(1)
+			jest.advanceTimersByTime(1)
+			expect(aspectSends()).toBe(2)
+		})
+
 		it('leaves the aspect alone by default', () => {
 			invoke(actions.setHWIOGalleryGridSize, { targetType: 'roomIndex', roomIndex: '1', rows: 1, cols: 2 })
 			jest.advanceTimersByTime(5000)
