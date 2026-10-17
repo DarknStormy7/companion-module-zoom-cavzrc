@@ -45,9 +45,9 @@ In **Assigned** distribution mode a seat keeps a person's name after they leave 
 - ✅ **Gallery: Set distribution mode**.
 - ⚠️ **Gallery: Assign participant to seat**, **Swap two seats**, **Reload assignments from CSV**.
 - ⚠️ **Gallery: Exclude self / hosts / no-video** and **Exclude participant by name**. These are the CAVZRC 7.1 API options; they may not be the same setting as the host exclusion in the CAVZRC window.
-- **Gallery: Set meeting ID**: stores the ID for meetings the module did not join itself (started from the tablet or from the CAVZRC window).
+- **Gallery: Set meeting ID**: a field where you type the meeting ID by hand. The module never fills it on its own.
 
-The seat actions need the meeting ID, which CAVZRC never reports. Leave their field blank to use `room_N_meeting_id`. It is set only by this module's **Join meeting** action or by **Gallery: Set meeting ID**; a meeting joined from the tablet or the CAVZRC window is not seen. It is cleared when the room goes back to an idle status (⚠️ the module expects "Idle" or "Not in meeting"; not yet confirmed on live traffic).
+**The meeting ID cannot be read from CAVZRC or Companion.** CAVZRC never sends it out, so neither this module nor Companion can find out which meeting the room is in. The seat actions still need it, so it has to be given by hand: type it in the action, or store it once per meeting with **Gallery: Set meeting ID** (it is shown in the CAVZRC Gallery Assignments dropdown). Leave a seat action's field blank to use that stored value, `room_N_meeting_id`. The only exception is a meeting joined with this module's own **Join meeting** action: the module keeps the ID you typed in that action. It is cleared when the room goes back to an idle status (⚠️ the module expects "Idle" or "Not in meeting"; not yet confirmed on live traffic).
 
 New feedbacks: **Gallery has "not joined" seats** and **Gallery distribution mode is**.
 
@@ -177,7 +177,7 @@ Updated from CAVZRC when the **Companion listen port** is set (non-zero):
 - **added_rooms_count**, **paired_rooms_count** — Counts of added and paired rooms.
 - **added_rooms_list**, **paired_rooms_list** — Comma-separated room names.
 - **room_1** … **room_10** — Per-room: **id**, **cavzrc_index**, **name**, **meeting_status**, **participant_count**, **mute** (Muted/Unmuted), **camera** (On/Off), **ndi_count** / **hwio_count** / **dante_count**.
-- Gallery, per room: **meeting_id**, **gallery_mode**, **gallery_seats**, **gallery_ghosts** (estimated "not joined" seats), **gallery_names**, **grid_size** (e.g. `1x2`), **exclude_self**, **exclude_hosts**, **exclude_no_video**.
+- Gallery, per room: **meeting_id** (only what was typed in Join meeting or Set meeting ID, never read from CAVZRC), **gallery_mode**, **gallery_seats**, **gallery_ghosts** (estimated "not joined" seats), **gallery_names**, **grid_size** (e.g. `1x2`), **exclude_self**, **exclude_hosts**, **exclude_no_video**.
 - Channels, per room: `room_N_hwio_<name>_active/mode/content/selection/resolution_fps/audio_mix/channel`, `room_N_ndi_<index>_*`, `room_N_dante_<index>_*`. `_channel` is the HWIO channel number, useful when channels move after a restart.
 
 Use these in button labels, stream deck text, or conditional logic.
