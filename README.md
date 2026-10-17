@@ -2,9 +2,70 @@
 
 Bitfocus Companion module for **Custom AV for Zoom Rooms Controller (CAVZRC)**. Control Zoom Rooms via OSC from Companion: join/leave meetings, mute, NDI/HWIO/Dante outputs, device settings, overlays, content share, and more. Feedbacks and variables update when CAVZRC sends OSC back to Companion.
 
-**Requirements:** Zoom Rooms 6.5.0+, CAVZRC 1.2.0+. The CAVZRC OSC API is in Beta.
+**Requirements:** Zoom Rooms 6.5.0+, CAVZRC 1.2.0+ (7.1.0+ for the gallery grid size and exclude options). The CAVZRC OSC API is in Beta.
 
-**Repository:** [github.com/bitfocus/companion-module-zoom-cavzrc](https://github.com/bitfocus/companion-module-zoom-cavzrc)
+> **This is a fork** of [bitfocus/companion-module-zoom-cavzrc](https://github.com/bitfocus/companion-module-zoom-cavzrc), built for rooms that drive many SDI/HDMI outputs from CAVZRC. It adds the CAVZRC 7.1 gallery controls, per-query polling and several fixes. See [What this fork adds](#what-this-fork-adds). The module in the Companion store is the upstream one and does not have these changes.
+
+---
+
+## What this fork adds
+
+### Fixes
+
+- **Room index is 1-based.** CAVZRC numbers rooms from 1; upstream added 1 again, so "room index" targets driven from variables hit the wrong room.
+- **Room variables by position.** `room_1_*` … `room_10_*` are filled in CAVZRC list order even when replies arrive out of order or with gaps. `room_N_cavzrc_index` shows CAVZRC's own index.
+- **Room lists stay current.** A resent list replaces the old one, so removed rooms drop out. Both `pairedRoomList` (what CAVZRC sends) and `pairedRoomsList` (what the API document says) are accepted, same for the added list.
+- **"In meeting" means in a meeting.** The feedback is only true for "In Meeting", not while the room is still connecting.
+
+### Polling, one setting per query
+
+Upstream never asked CAVZRC for status, so variables stayed empty until a button asked. Each query now has its own setting (Off, on connect, or an interval):
+
+| Query | Default | Note |
+| ----- | ------- | ---- |
+| Meeting status | every 5 s | |
+| Participant count | every 2.5 s | only while the room is in a meeting |
+| Gallery seats and "not joined" count | every 10 s | only while the room is in a meeting |
+| Gallery mode, grid size, exclude options | every 30 s | read-only; set Off if you don't use them |
+| HWIO channel routing | on connect | Off / On connect / Every 60 s; also fills each channel's number |
+| Room lists | on connect | refreshed again when a reply comes from an unknown room |
+
+Mute and camera status need no polling: CAVZRC sends them when they change. **Refresh all now** asks for everything once. A connection from an older build keeps its old "Poll Interval" for meeting status and participant count.
+
+### Connection health
+
+**No-data warning:** when nothing arrives from CAVZRC for the chosen time, the connection turns red and a probe is sent; it recovers by itself when data comes back.
+
+### Gallery ("not joined" seats), CAVZRC 7.1
+
+In **Assigned** distribution mode a seat keeps a person's name after they leave or rename ("Sara not joined"). New actions:
+
+- **Gallery: Clear all seats of the meeting**: removes every seat; people still in the call are seated again, ghosts are not. People may move to another screen.
+- **Gallery: Delete seat**: one seat, the same as the X in the CAVZRC Gallery Assignments window.
+- **Gallery: Assign participant to seat**, **Swap two seats**, **Set distribution mode**, **Reload assignments from CSV**.
+- **Gallery: Exclude self / hosts / no-video** and **Exclude participant by name**.
+- **Gallery: Set meeting ID**: for meetings started from the tablet.
+
+The seat actions need the meeting ID, which CAVZRC never reports. Leave their field blank to use `room_N_meeting_id`, set by **Join meeting** or **Gallery: Set meeting ID** and cleared when the meeting ends.
+
+New feedbacks: **Gallery has "not joined" seats** and **Gallery distribution mode is**.
+
+### HWIO layout
+
+- **HWIO: Set tile aspect ratio**: one or more channels (`1,3,4,5`), with a ratio that matches the current gallery grid (recommended), a preset per layout, or a custom value.
+- **HWIO: Set gallery grid size**: the "Hardware output gallery size", optionally with the matching aspect ratio.
+- **HWIO: Get layout settings**.
+
+Aspect ratios that fill a 1920x1080 output: 1x1, 2x2, 3x3, 4x4 = 1.778 · 1x2 = 0.889 · 2x1 = 3.556 · 2x3 = 1.185 · 3x4 = 1.333.
+Channels are changed one at a time ("Wait between channels", default 250 ms), and after a grid change the module waits first ("Wait after the grid change", default 500 ms), so CAVZRC re-lays out one output at a time.
+
+### Install this fork in Companion
+
+1. Download the module package (`zoom-cavzrc-<version>.tgz`) built from this repository, or build it: `npm install`, `npx tsc -p tsconfig.build.json`, `npx companion-module-build`.
+2. Extract it and copy the contents of its `pkg` folder into Companion's developer modules folder, e.g. `%AppData%\companion\dev\zoom-cavzrc\` on Windows.
+3. Quit Companion from the tray and start it again. The connection shows the new version (0.6.0) and the per-query polling settings.
+
+**Repository (upstream):** [github.com/bitfocus/companion-module-zoom-cavzrc](https://github.com/bitfocus/companion-module-zoom-cavzrc)
 
 ---
 
@@ -95,7 +156,10 @@ The module exposes CAVZRC’s OSC controls so you can drive Zoom Rooms from Comp
 ## Feedbacks
 
 - **Room is paired** — True when the chosen room is in the paired list.
-- **In meeting** — True when the chosen room is in a meeting.
+- **In meeting** — True when the chosen room is in a meeting ("In Meeting", not "connecting").
+- **Gallery has "not joined" seats** — True when the gallery has more named seats than participants plus the room.
+- **Gallery distribution mode is** — True when the room uses the chosen mode.
+- **HWIO channel active** / **HWIO channel selection matches** — React to routing changes.
 - **Mic unmuted** — True when the room mic is unmuted.
 - **Camera on** — True when the room camera is on.
 
@@ -109,7 +173,9 @@ Updated from CAVZRC when the **Companion listen port** is set (non-zero):
 
 - **added_rooms_count**, **paired_rooms_count** — Counts of added and paired rooms.
 - **added_rooms_list**, **paired_rooms_list** — Comma-separated room names.
-- **room_1** … **room_10** — Per-room: **id**, **name**, **meeting_status**, **participant_count**, **mute** (Muted/Unmuted), **camera** (On/Off).
+- **room_1** … **room_10** — Per-room: **id**, **cavzrc_index**, **name**, **meeting_status**, **participant_count**, **mute** (Muted/Unmuted), **camera** (On/Off), **ndi_count** / **hwio_count** / **dante_count**.
+- Gallery, per room: **meeting_id**, **gallery_mode**, **gallery_seats**, **gallery_ghosts** (estimated "not joined" seats), **gallery_names**, **grid_size** (e.g. `1x2`), **exclude_self**, **exclude_hosts**, **exclude_no_video**.
+- Channels, per room: `room_N_hwio_<name>_active/mode/content/selection/resolution_fps/audio_mix/channel`, `room_N_ndi_<index>_*`, `room_N_dante_<index>_*`. `_channel` is the HWIO channel number, useful when channels move after a restart.
 
 Use these in button labels, stream deck text, or conditional logic.
 
