@@ -502,3 +502,30 @@ describe('several channels', () => {
 		expect(mock.mockSendCommand.mock.calls).toEqual([['/zoomRooms/roomIndex/setHWIOContentGallery', [1, 6]]])
 	})
 })
+
+describe('several channels on every channel action', () => {
+	beforeEach(() => jest.useFakeTimers())
+	afterEach(() => jest.useRealTimers())
+
+	it.each([
+		['setHWIOContentParticipant', '/zoomRooms/roomIndex/setHWIOContentParticipant', {}, []],
+		['setHWIOPinGroupSelection', '/zoomRooms/roomIndex/setHWIOPinGroupSelection', { pin_group_index: 2 }, [2]],
+		['setNDIContentSpotlight', '/zoomRooms/roomIndex/setNDIContentSpotlight', {}, []],
+		['setDanteContentMix', '/zoomRooms/roomIndex/setDanteContentMix', {}, []],
+	])('%s goes to each listed channel', (id, path, extra, args) => {
+		const mock = createMockInstance()
+		const actions = GetActions(mock.instance) as Record<string, unknown>
+		invoke(actions[id] as never, {
+			targetType: 'roomIndex',
+			roomIndex: '1',
+			multiChannel: true,
+			channels: '2,4',
+			...extra,
+		})
+		jest.advanceTimersByTime(250)
+		expect(mock.mockSendCommand.mock.calls).toEqual([
+			[path, [1, 2, ...args]],
+			[path, [1, 4, ...args]],
+		])
+	})
+})

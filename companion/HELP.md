@@ -30,7 +30,7 @@ Each query has its own setting (Off, on connect, or an interval):
   `room_N_hwio_<name>_channel` with the channel number, so a remap after a Mac restart is visible.
   Put that variable in the **Channel** field of any HWIO action to address a screen by name; an
   unknown name leaves it empty and the action sends nothing.
-  **HWIO: Content gallery** and **HWIO: Select gallery** can also go to several channels: tick
+  Every HWIO, NDI and Dante channel action can also go to several channels: tick
   **Several channels**, list them, and set the wait between channels (default 250 ms).
 - **Room lists**: on connect, and again automatically when a reply arrives from a room the module does not know.
 

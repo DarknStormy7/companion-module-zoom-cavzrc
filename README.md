@@ -67,13 +67,13 @@ Channels are changed one at a time ("Wait between channels", default 250 ms), an
 
 CAVZRC commands only take a channel number, but the **Channel** field of the HWIO, NDI and Dante actions now accepts a variable. With **HWIO channel routing** polling on, each named HWIO channel gets `$(cavzrc:room_N_hwio_<name>_channel)` holding its number (name lowercased, anything but letters and digits becomes `_`; "Screen A-1" → `room_1_hwio_screen_a_1_channel`). Put that variable in the Channel field and the button follows the screen even if its number changes. If the name is unknown the variable is empty and the action sends nothing (it logs an error) rather than falling back to channel 1. ✅ Tested live with one variable in HWIO: Content gallery and HWIO: Select gallery.
 
-**HWIO: Content gallery** and **HWIO: Select gallery** also have an optional **Several channels** box: tick it and list channels (`1,3,$(cavzrc:room_1_hwio_screen_b_channel)`). They are sent one after the other, **Wait between channels** apart (default 250 ms, editable); an entry that is not a number, such as an unknown name, is skipped with a warning. ⚠️ Not tested live yet.
+Every HWIO, NDI and Dante channel action (content off, test signal, participant, active speaker, gallery, screenshare, spotlight, pin group, the selections, mode, resolution, audio mix…) also has an optional **Several channels** box: tick it and list channels (`1,3,$(cavzrc:room_1_hwio_screen_b_channel)`). They are sent one after the other, **Wait between channels** apart (default 250 ms, editable); an entry that is not a number, such as an unknown name, is skipped with a warning. ⚠️ Not tested live yet.
 
 ### Install this fork in Companion
 
 1. Download the module package (`zoom-cavzrc-<version>.tgz`) built from this repository, or build it: `npm install`, `npx tsc -p tsconfig.build.json`, `npx companion-module-build`.
 2. Extract it and copy the contents of its `pkg` folder into Companion's developer modules folder, e.g. `%AppData%\companion\dev\zoom-cavzrc\` on Windows.
-3. Quit Companion from the tray and start it again. The connection shows the new version (0.8.0) and the per-query polling settings.
+3. Quit Companion from the tray and start it again. The connection shows the new version (0.9.0) and the per-query polling settings.
 
 **Repository (upstream):** [github.com/bitfocus/companion-module-zoom-cavzrc](https://github.com/bitfocus/companion-module-zoom-cavzrc)
 

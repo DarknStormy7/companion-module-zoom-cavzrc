@@ -3,13 +3,13 @@ import type { ZoomRoomsInstance } from '../utils.js'
 import type { OscSendArg } from '../osc.js'
 import {
 	ROOM_TARGET_OPTIONS,
-	CHANNEL_NUM_OPTION,
-	parseChannelNum,
+	MULTI_CHANNEL_OPTIONS,
+	channelCommand,
+	roomCommand,
+	roomCommandWithOpts,
 	buildRoomPath,
 	getRoomTarget,
 	resolveRoomIDs,
-	roomCommand,
-	roomCommandWithOpts,
 } from './action-room-utils.js'
 
 export enum ActionIdGallery {
@@ -465,8 +465,8 @@ export function GetActionsGallery(instance: ZoomRoomsInstance): {
 
 		[ActionIdGallery.getHWIOLayoutSettings]: {
 			name: 'HWIO: Get layout settings',
-			options: [...ROOM_TARGET_OPTIONS, CHANNEL_NUM_OPTION],
-			callback: roomCommandWithOpts(instance, 'getHWIOLayoutSettings', (o) => [parseChannelNum(o.channel_num)]),
+			options: [...ROOM_TARGET_OPTIONS, ...MULTI_CHANNEL_OPTIONS],
+			callback: channelCommand(instance, 'getHWIOLayoutSettings'),
 		},
 
 		[ActionIdGallery.refreshAll]: {
