@@ -4,23 +4,37 @@ Bitfocus Companion module for **Custom AV for Zoom Rooms Controller (CAVZRC)**. 
 
 **Requirements:** Zoom Rooms 6.5.0+, CAVZRC 1.2.0+ (7.1.0+ for the gallery grid size and exclude options). The CAVZRC OSC API is in Beta.
 
-> **This is a fork** of [bitfocus/companion-module-zoom-cavzrc](https://github.com/bitfocus/companion-module-zoom-cavzrc), built for rooms that drive many SDI/HDMI outputs from CAVZRC. It adds the CAVZRC 7.1 gallery controls, per-query polling and several fixes. See [What this fork adds](#what-this-fork-adds). The module in the Companion store is the upstream one and does not have these changes.
+> **This is a fork** of [bitfocus/companion-module-zoom-cavzrc](https://github.com/bitfocus/companion-module-zoom-cavzrc), built for rooms that drive many SDI/HDMI outputs from CAVZRC. The module in the Companion store is the upstream one and does not have these changes. To use this fork, see [Install this fork](#install-this-fork-in-companion).
 
 ---
 
 ## What this fork adds
 
-### Fixes
+### Overview
 
-- **Room index is 1-based.** CAVZRC numbers rooms from 1; upstream added 1 again, so "room index" targets driven from variables hit the wrong room.
-- **Room variables by position.** `room_1_*` … `room_10_*` are filled in CAVZRC list order even when replies arrive out of order or with gaps. `room_N_cavzrc_index` shows CAVZRC's own index.
-- **Room lists stay current.** A resent list replaces the old one, so removed rooms drop out. Both `pairedRoomList` (what CAVZRC sends) and `pairedRoomsList` (what the API document says) are accepted, same for the added list.
-- **"In meeting" means in a meeting.** The feedback is only true for "In Meeting", not while the room is still connecting.
-- **Variables in action fields work.** Text fields marked for variables (room ID, name, index, channel lists…) were sent with `$(...)` still in them; they are now resolved first.
+| Feature | In short | Status |
+| ------- | -------- | ------ |
+| [Polling](#polling-one-setting-per-query) | Variables fill themselves; each query has its own interval or can be turned off | ✅ |
+| [Channels by name](#channels-by-name) | Put `$(cavzrc:room_1_hwio_<name>_channel)` in a Channel field, so a button follows a screen even if its number changes | ✅ |
+| [Several channels](#several-channels-in-one-action) | Every HWIO, NDI and Dante channel action can target a list of channels, one after the other | ⚠️ |
+| [Gallery seats](#gallery-not-joined-seats-cavzrc-71) | Clear `<name> not joined` seats, assign and swap seats (CAVZRC 7.1) | ✅ / ⚠️ |
+| [Meeting ID](#the-meeting-id) | Cannot be read from CAVZRC; typed by hand or kept from **Join meeting** | — |
+| [HWIO layout](#hwio-layout) | Gallery grid size and tile aspect ratio per output, applied one channel at a time | ⚠️ |
+| [Fixes](#fixes) | Room index, room lists, "In meeting" feedback, variables in action fields, connection health | ✅ |
+
+✅ tested on a live CAVZRC 7.1.0 · ⚠️ not tested live yet
+
+### Install this fork in Companion
+
+1. Download the module package (`zoom-cavzrc-<version>.tgz`) built from this repository, or build it: `npm install`, `npx tsc -p tsconfig.build.json`, `npx companion-module-build`.
+2. Extract it and copy the contents of its `pkg` folder into Companion's developer modules folder, e.g. `%AppData%\companion\dev\zoom-cavzrc\` on Windows.
+3. Quit Companion from the tray and start it again. The connection shows the new version number.
+
+Existing buttons keep working: settings and channel numbers from an older version are converted automatically.
 
 ### Polling, one setting per query
 
-Upstream never asked CAVZRC for status, so variables stayed empty until a button asked. Each query now has its own setting (Off, on connect, or an interval):
+Upstream never asked CAVZRC for status, so variables stayed empty until a button asked. Each query now has its own setting in the connection (Off, on connect, or an interval):
 
 | Query | Default | Note |
 | ----- | ------- | ---- |
@@ -28,52 +42,73 @@ Upstream never asked CAVZRC for status, so variables stayed empty until a button
 | Participant count | every 2.5 s | only while the room is in a meeting |
 | Gallery seats and "not joined" count | every 10 s | only while the room is in a meeting |
 | Gallery mode, grid size, exclude options | every 30 s | read-only; set Off if you don't use them |
-| HWIO channel routing | on connect | Off / On connect / Every 60 s; also fills each channel's number |
+| HWIO channel routing | on connect | Off / On connect / Every 60 s; fills the channel number of each screen name |
 | Room lists | on connect | refreshed again when a reply comes from an unknown room |
 
-Mute and camera status need no polling: CAVZRC sends them when they change. **Refresh all now** asks for everything once. A connection from an older build keeps its old "Poll Interval" for meeting status and participant count.
-
-### Connection health
-
-**No-data warning:** when nothing arrives from CAVZRC for the chosen time, the connection turns red and a probe is sent; it recovers by itself when data comes back.
-
-### Gallery ("not joined" seats), CAVZRC 7.1
-
-In **Assigned** distribution mode a seat keeps a person's name after they leave or rename, shown as "<name> not joined". New actions (✅ tested on a live CAVZRC 7.1.0, ⚠️ not tested yet):
-
-- ✅ **Gallery: Clear all seats of the meeting**: removes every seat; people still in the call are seated again, ghosts are not. ⚠️ Not yet watched on the screens: people may move to another screen.
-- ✅ **Gallery: Delete seat**: removes one seat (meant to match the X in the CAVZRC Gallery Assignments window; not compared side by side).
-- ✅ **Gallery: Set distribution mode**.
-- ⚠️ **Gallery: Assign participant to seat**, **Swap two seats**, **Reload assignments from CSV**.
-- ⚠️ **Gallery: Exclude self / hosts / no-video** and **Exclude participant by name**. These are the CAVZRC 7.1 API options; they may not be the same setting as the host exclusion in the CAVZRC window.
-- **Gallery: Set meeting ID**: a field where you type the meeting ID by hand. The module never fills it on its own.
-
-**The meeting ID cannot be read from CAVZRC or Companion.** CAVZRC never sends it out, so neither this module nor Companion can find out which meeting the room is in. The seat actions still need it, so it has to be given by hand: type it in the action, or store it once per meeting with **Gallery: Set meeting ID** (it is shown in the CAVZRC Gallery Assignments dropdown). Leave a seat action's field blank to use that stored value, `room_N_meeting_id`. The only exception is a meeting joined with this module's own **Join meeting** action: the module keeps the ID you typed in that action. It is cleared when the room goes back to an idle status (⚠️ the module expects "Idle" or "Not in meeting"; not yet confirmed on live traffic).
-
-New feedbacks: **Gallery has "not joined" seats** and **Gallery distribution mode is**.
-
-### HWIO layout
-
-⚠️ The HWIO layout actions are not tested on a live CAVZRC yet; reading the layout back is.
-
-- **HWIO: Set tile aspect ratio**: one or more channels (`1,3,4,5`), with a ratio that matches the current gallery grid (recommended), a preset per layout, or a custom value.
-- **HWIO: Set gallery grid size**: the "Hardware output gallery size", optionally with the matching aspect ratio.
-- **HWIO: Get layout settings**.
-
-Aspect ratios that fill a 1920x1080 output: 1x1, 2x2, 3x3, 4x4 = 1.778 · 1x2 = 0.889 · 2x1 = 3.556 · 2x3 = 1.185 · 3x4 = 1.333.
-Channels are changed one at a time ("Wait between channels", default 250 ms), and after a grid change the module waits first ("Wait after the grid change", default 500 ms), so CAVZRC re-lays out one output at a time.
+Mute and camera status need no polling: CAVZRC sends them when they change. The **Refresh all now** action asks for everything once.
 
 ### Channels by name
 
-CAVZRC commands only take a channel number, but the **Channel** field of the HWIO, NDI and Dante actions now accepts a variable. With **HWIO channel routing** polling on, each named HWIO channel gets `$(cavzrc:room_N_hwio_<name>_channel)` holding its number (name lowercased, anything but letters and digits becomes `_`; "Screen A-1" → `room_1_hwio_screen_a_1_channel`). Put that variable in the Channel field and the button follows the screen even if its number changes. If the name is unknown the variable is empty and the action sends nothing (it logs an error) rather than falling back to channel 1. ✅ Tested live with one variable in HWIO: Content gallery and HWIO: Select gallery.
+CAVZRC commands only take a channel number. With **HWIO channel routing** polling on, the module reads every HWIO channel and creates one variable per channel name, holding its number:
 
-Every HWIO, NDI and Dante channel action (content off, test signal, participant, active speaker, gallery, screenshare, spotlight, pin group, the selections, mode, resolution, audio mix…) also has an optional **Several channels** box: tick it and list channels (`1,3,$(cavzrc:room_1_hwio_screen_b_channel)`). They are sent one after the other, **Wait between channels** apart (default 250 ms, editable); an entry that is not a number, such as an unknown name, is skipped with a warning. ⚠️ Not tested live yet.
+- `$(cavzrc:room_N_hwio_<name>_channel)`: the name is lowercased and anything other than a letter or digit becomes `_`. Example: a channel named "Screen A-1" on channel 3 gives `$(cavzrc:room_1_hwio_screen_a_1_channel)` = `3`.
 
-### Install this fork in Companion
+The **Channel** field of every HWIO, NDI and Dante action accepts a number or a variable. Put the variable there and the button follows the screen even if channel numbers change after a restart. If the name is unknown, the variable is empty and the action sends nothing (an error is logged); it never falls back to channel 1.
 
-1. Download the module package (`zoom-cavzrc-<version>.tgz`) built from this repository, or build it: `npm install`, `npx tsc -p tsconfig.build.json`, `npx companion-module-build`.
-2. Extract it and copy the contents of its `pkg` folder into Companion's developer modules folder, e.g. `%AppData%\companion\dev\zoom-cavzrc\` on Windows.
-3. Quit Companion from the tray and start it again. The connection shows the new version (0.9.0) and the per-query polling settings.
+### Several channels in one action
+
+Every HWIO, NDI and Dante channel action (content off, test signal, participant, active speaker, gallery, screenshare, spotlight, pin group, the selections, mode, input, resolution, audio mix, channel reads) has an optional **Several channels** box. It is off by default.
+
+- **Channels**: a list of numbers and/or variables, e.g. `1,3,$(cavzrc:room_1_hwio_screen_b_channel)`.
+- **Wait between channels (ms)**: default 250, editable. The first channel is sent at once, the others one after the other, so CAVZRC is not hit with everything at the same time.
+
+An entry that is not a number (such as an unknown name) is skipped with a warning; the other channels still get the command.
+
+### Gallery ("not joined" seats), CAVZRC 7.1
+
+In **Assigned** distribution mode a seat keeps a person's name after they leave or rename, shown as `<name> not joined`. New actions:
+
+- ✅ **Gallery: Clear all seats of the meeting**: removes every seat; people still in the call are seated again, "not joined" seats are not. ⚠️ Not yet watched on the screens: people may move to another screen.
+- ✅ **Gallery: Delete seat**: removes one seat, like the X in the CAVZRC Gallery Assignments window.
+- ✅ **Gallery: Set distribution mode**.
+- ⚠️ **Gallery: Assign participant to seat**, **Swap two seats**, **Reload assignments from CSV**.
+- ⚠️ **Gallery: Exclude self / hosts / no-video** and **Exclude participant by name**. These are the CAVZRC 7.1 API options; they may not be the same setting as the host exclusion in the CAVZRC window.
+
+New feedbacks: **Gallery has "not joined" seats** and **Gallery distribution mode is**.
+
+### The meeting ID
+
+**The meeting ID cannot be read from CAVZRC or Companion.** CAVZRC never sends it out, so neither this module nor Companion can find out which meeting the room is in.
+
+The seat actions above still need it, so it is given by hand:
+
+- type it in the action, or
+- store it once per meeting with **Gallery: Set meeting ID** (the ID is shown in the CAVZRC Gallery Assignments dropdown). A seat action with a blank meeting ID field then uses the stored value, `room_N_meeting_id`.
+
+The only exception: a meeting joined with this module's own **Join meeting** action. The module keeps the ID typed in that action. Meetings started from the Zoom Rooms tablet or the CAVZRC window are not known to the module.
+
+The stored ID is cleared when the room goes back to an idle status. ⚠️ The module expects "Idle" or "Not in meeting"; not yet confirmed on live traffic.
+
+### HWIO layout
+
+⚠️ Setting the layout is not tested on a live CAVZRC yet; reading it back is.
+
+- **HWIO: Set gallery grid size**: the "Hardware output gallery size", optionally with the matching tile aspect ratio.
+- **HWIO: Set tile aspect ratio**: one or more channels (`1,3,4,5`), with the ratio that matches the current gallery grid (recommended), a preset per layout, or a custom value.
+- **HWIO: Get layout settings**.
+
+Tile aspect ratios that fill a 1920x1080 output: 1x1, 2x2, 3x3, 4x4 = 1.778 · 1x2 = 0.889 · 2x1 = 3.556 · 2x3 = 1.185 · 3x4 = 1.333.
+
+To avoid freezing CAVZRC, the grid is changed first, then the module waits (**Wait after the grid change**, default 500 ms) and changes the channels one at a time (**Wait between channels**, default 250 ms). Both are editable.
+
+### Fixes
+
+- **Room index is 1-based.** CAVZRC numbers rooms from 1; upstream added 1 again, so "room index" targets driven from variables hit the wrong room.
+- **Room variables by position.** `room_1_*` … `room_10_*` are filled in CAVZRC list order even when replies arrive out of order or with gaps. `room_N_cavzrc_index` shows CAVZRC's own index.
+- **Room lists stay current.** A resent list replaces the old one, so removed rooms drop out. Both `pairedRoomList` (what CAVZRC sends) and `pairedRoomsList` (what the API document says) are accepted, same for the added list.
+- **"In meeting" means in a meeting.** The feedback is only true for "In Meeting", not while the room is still connecting.
+- **Variables in action fields work.** Fields that accept variables (room ID, name, index, channels…) used to be sent with `$(...)` still in them; they are now resolved first.
+- **Connection health.** When nothing arrives from CAVZRC for the chosen time, the connection turns red and a probe is sent; it recovers by itself when data comes back.
 
 **Repository (upstream):** [github.com/bitfocus/companion-module-zoom-cavzrc](https://github.com/bitfocus/companion-module-zoom-cavzrc)
 
