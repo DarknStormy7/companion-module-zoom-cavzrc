@@ -450,3 +450,55 @@ describe('channel option with variables', () => {
 		expect(result.updatedActions).toEqual([{ ...action, options: { channel_num: '3' } }])
 	})
 })
+
+describe('several channels', () => {
+	beforeEach(() => jest.useFakeTimers())
+	afterEach(() => jest.useRealTimers())
+
+	it('sends to each listed channel, the gap apart', () => {
+		const mock = createMockInstance()
+		invoke(GetActions(mock.instance).setHWIOGallerySelection, {
+			targetType: 'roomIndex',
+			roomIndex: '1',
+			multiChannel: true,
+			channels: '1, 3;5',
+			channelGapMs: 300,
+			gallery_index: 10,
+		})
+		expect(mock.mockSendCommand).toHaveBeenCalledTimes(1)
+		expect(mock.mockSendCommand).toHaveBeenLastCalledWith('/zoomRooms/roomIndex/setHWIOGallerySelection', [1, 1, 10])
+		jest.advanceTimersByTime(299)
+		expect(mock.mockSendCommand).toHaveBeenCalledTimes(1)
+		jest.advanceTimersByTime(1)
+		expect(mock.mockSendCommand).toHaveBeenLastCalledWith('/zoomRooms/roomIndex/setHWIOGallerySelection', [1, 3, 10])
+		jest.advanceTimersByTime(300)
+		expect(mock.mockSendCommand).toHaveBeenLastCalledWith('/zoomRooms/roomIndex/setHWIOGallerySelection', [1, 5, 10])
+	})
+
+	it('defaults to 250 ms and skips an empty variable with a warning', () => {
+		const mock = createMockInstance()
+		invoke(GetActions(mock.instance).setHWIOContentGallery, {
+			targetType: 'roomIndex',
+			roomIndex: '1',
+			multiChannel: true,
+			channels: '2,,4',
+		})
+		jest.advanceTimersByTime(250)
+		expect(mock.mockSendCommand.mock.calls).toEqual([
+			['/zoomRooms/roomIndex/setHWIOContentGallery', [1, 2]],
+			['/zoomRooms/roomIndex/setHWIOContentGallery', [1, 4]],
+		])
+		expect(mock.instance.log).toHaveBeenCalledWith('warn', expect.stringContaining('skipped'))
+	})
+
+	it('without the box ticked, uses the single Channel field', () => {
+		const mock = createMockInstance()
+		invoke(GetActions(mock.instance).setHWIOContentGallery, {
+			targetType: 'roomIndex',
+			roomIndex: '1',
+			channel_num: '6',
+			channels: '1,2',
+		})
+		expect(mock.mockSendCommand.mock.calls).toEqual([['/zoomRooms/roomIndex/setHWIOContentGallery', [1, 6]]])
+	})
+})

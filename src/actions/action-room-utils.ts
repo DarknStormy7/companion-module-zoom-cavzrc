@@ -52,6 +52,88 @@ export const CHANNEL_NUM_OPTION: SomeCompanionActionInputField = {
 	useVariables: true,
 }
 
+/** Channel option for actions that can also go to several channels: hidden while "Several channels" is ticked. */
+export const MULTI_CHANNEL_OPTIONS: SomeCompanionActionInputField[] = [
+	{
+		type: 'checkbox',
+		label: 'Several channels',
+		id: 'multiChannel',
+		default: false,
+	},
+	{ ...CHANNEL_NUM_OPTION, isVisible: (o) => !o.multiChannel },
+	{
+		type: 'textinput',
+		label: 'Channels (e.g. 1,3,$(cavzrc:room_1_hwio_<name>_channel))',
+		id: 'channels',
+		default: '1',
+		useVariables: true,
+		isVisible: (o) => !!o.multiChannel,
+	},
+	{
+		type: 'number',
+		label: 'Wait between channels (ms)',
+		id: 'channelGapMs',
+		default: 250,
+		min: 0,
+		max: 10000,
+		isVisible: (o) => !!o.multiChannel,
+	},
+]
+
+/** Channel numbers from a list; an entry that is not a channel number (an empty variable) is reported, not guessed. */
+export function parseChannelEntries(value: unknown): { channels: number[]; invalid: string[] } {
+	const text = typeof value === 'number' ? String(value) : typeof value === 'string' ? value : ''
+	const channels: number[] = []
+	const invalid: string[] = []
+	const entries = text.split(/[,;]/).map((e) => e.trim())
+	for (const entry of entries.length > 1 || entries[0] !== '' ? entries : []) {
+		for (const part of entry === '' ? [''] : entry.split(/\s+/)) {
+			const n = Number(part)
+			if (part !== '' && Number.isInteger(n) && n >= 1 && n <= 999) channels.push(n)
+			else invalid.push(part)
+		}
+	}
+	return { channels, invalid }
+}
+
+/**
+ * A command whose first argument is the channel. With "Several channels" ticked it is
+ * sent to each listed channel in turn, "Wait between channels" apart.
+ */
+export function channelCommand(
+	instance: ZoomRoomsInstance,
+	command: string,
+	getExtra: (opt: Record<string, unknown>) => OscSendArg[] = () => [],
+) {
+	const single = roomCommandWithOpts(instance, command, (o) => [parseChannelNum(o.channel_num), ...getExtra(o)])
+	return (action: { options: Record<string, unknown> }): void => {
+		const opt = action.options
+		if (!opt.multiChannel) {
+			single(action)
+			return
+		}
+		const { channels, invalid } = parseChannelEntries(opt.channels)
+		if (invalid.length > 0) {
+			instance.log(
+				'warn',
+				`${command}: skipped channel entries that are not numbers: ${invalid.map((e) => `"${e}"`).join(', ')}`,
+			)
+		}
+		if (channels.length === 0) {
+			instance.log('error', `Error for ${command}.  No valid channel listed.`)
+			return
+		}
+		const gap = Number(opt.channelGapMs)
+		const gapMs =
+			opt.channelGapMs === undefined || opt.channelGapMs === '' || !Number.isFinite(gap) || gap < 0 ? 250 : gap
+		channels.forEach((ch, i) => {
+			const send = (): void => roomCommandWithOpts(instance, command, (o) => [ch, ...getExtra(o)])(action)
+			if (i === 0) send()
+			else setTimeout(send, i * gapMs)
+		})
+	}
+}
+
 /** Channel number from the Channel option. Missing means 1; anything else that is not a channel number is refused, so an empty variable never lands on channel 1. */
 export function parseChannelNum(value: unknown): number {
 	if (value === undefined) return 1

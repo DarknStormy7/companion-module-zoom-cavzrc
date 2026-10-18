@@ -4,6 +4,8 @@ import {
 	ROOM_TARGET_OPTIONS,
 	CHANNEL_NUM_OPTION,
 	parseChannelNum,
+	MULTI_CHANNEL_OPTIONS,
+	channelCommand,
 	roomCommand,
 	roomCommandWithOpts,
 } from './action-room-utils.js'
@@ -86,8 +88,8 @@ export function GetActionsHWIO(instance: ZoomRoomsInstance): {
 
 		[ActionIdHWIO.setHWIOContentGallery]: {
 			name: 'HWIO: Content gallery',
-			options: [...ROOM_TARGET_OPTIONS, CHANNEL_NUM_OPTION],
-			callback: roomCommandWithOpts(instance, 'setHWIOContentGallery', (o) => [parseChannelNum(o.channel_num)]),
+			options: [...ROOM_TARGET_OPTIONS, ...MULTI_CHANNEL_OPTIONS],
+			callback: channelCommand(instance, 'setHWIOContentGallery'),
 		},
 
 		[ActionIdHWIO.setHWIOContentScreenshare]: {
@@ -151,13 +153,10 @@ export function GetActionsHWIO(instance: ZoomRoomsInstance): {
 			name: 'HWIO: Select gallery',
 			options: [
 				...ROOM_TARGET_OPTIONS,
-				CHANNEL_NUM_OPTION,
+				...MULTI_CHANNEL_OPTIONS,
 				{ type: 'number', label: 'Gallery index', id: 'gallery_index', default: 0, min: 0, max: 99 },
 			],
-			callback: roomCommandWithOpts(instance, 'setHWIOGallerySelection', (o) => [
-				parseChannelNum(o.channel_num),
-				Number(o.gallery_index) || 0,
-			]),
+			callback: channelCommand(instance, 'setHWIOGallerySelection', (o) => [Number(o.gallery_index) || 0]),
 		},
 
 		[ActionIdHWIO.setHWIOScreenshareSelection]: {
