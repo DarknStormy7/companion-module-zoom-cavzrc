@@ -21,4 +21,14 @@ const splitPollInterval: CompanionStaticUpgradeScript<ZoomRoomsConfig> = (_conte
 	return { updatedConfig: config, updatedActions: [], updatedFeedbacks: [] }
 }
 
-export const UpgradeScripts: CompanionStaticUpgradeScript<ZoomRoomsConfig>[] = [splitPollInterval]
+/** v0.7: the Channel option became a text field so it can take a variable; saved numbers become text. */
+const channelAsText: CompanionStaticUpgradeScript<ZoomRoomsConfig> = (_context, props) => {
+	const updatedActions = props.actions.filter((action) => {
+		if (typeof action.options.channel_num !== 'number') return false
+		action.options.channel_num = String(action.options.channel_num)
+		return true
+	})
+	return { updatedConfig: null, updatedActions, updatedFeedbacks: [] }
+}
+
+export const UpgradeScripts: CompanionStaticUpgradeScript<ZoomRoomsConfig>[] = [splitPollInterval, channelAsText]

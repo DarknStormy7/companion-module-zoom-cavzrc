@@ -4,6 +4,7 @@ import type { OscSendArg } from '../osc.js'
 import {
 	ROOM_TARGET_OPTIONS,
 	CHANNEL_NUM_OPTION,
+	parseChannelNum,
 	buildRoomPath,
 	getRoomTarget,
 	resolveRoomIDs,
@@ -465,7 +466,7 @@ export function GetActionsGallery(instance: ZoomRoomsInstance): {
 		[ActionIdGallery.getHWIOLayoutSettings]: {
 			name: 'HWIO: Get layout settings',
 			options: [...ROOM_TARGET_OPTIONS, CHANNEL_NUM_OPTION],
-			callback: roomCommandWithOpts(instance, 'getHWIOLayoutSettings', (o) => [Number(o.channel_num) || 1]),
+			callback: roomCommandWithOpts(instance, 'getHWIOLayoutSettings', (o) => [parseChannelNum(o.channel_num)]),
 		},
 
 		[ActionIdGallery.refreshAll]: {

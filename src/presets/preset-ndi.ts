@@ -7,7 +7,7 @@ export enum PresetIdNDI {
 	NdiContentGallery = 'ndi_content_gallery',
 }
 
-const defaultOpts = { targetType: 'roomIndex', roomIndex: 1, channel_num: 1 }
+const defaultOpts = { targetType: 'roomIndex', roomIndex: 1, channel_num: '1' }
 
 export function GetPresetsNDI(): { [id in PresetIdNDI]: CompanionPresetExt | undefined } {
 	const presets: { [id in PresetIdNDI]: CompanionPresetExt | undefined } = {

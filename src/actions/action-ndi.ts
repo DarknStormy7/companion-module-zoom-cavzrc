@@ -1,6 +1,12 @@
 import type { CompanionActionDefinition } from '@companion-module/base'
 import type { ZoomRoomsInstance } from '../utils.js'
-import { ROOM_TARGET_OPTIONS, CHANNEL_NUM_OPTION, roomCommand, roomCommandWithOpts } from './action-room-utils.js'
+import {
+	ROOM_TARGET_OPTIONS,
+	CHANNEL_NUM_OPTION,
+	parseChannelNum,
+	roomCommand,
+	roomCommandWithOpts,
+} from './action-room-utils.js'
 
 export enum ActionIdNDI {
 	setNDIContentOff = 'setNDIContentOff',
@@ -25,43 +31,43 @@ export function GetActionsNDI(instance: ZoomRoomsInstance): {
 		[ActionIdNDI.setNDIContentOff]: {
 			name: 'NDI: Set content off',
 			options: [...ROOM_TARGET_OPTIONS, CHANNEL_NUM_OPTION],
-			callback: roomCommandWithOpts(instance, 'setNDIContentOff', (o) => [Number(o.channel_num) || 1]),
+			callback: roomCommandWithOpts(instance, 'setNDIContentOff', (o) => [parseChannelNum(o.channel_num)]),
 		},
 
 		[ActionIdNDI.setNDIContentParticipant]: {
 			name: 'NDI: Set content to participant',
 			options: [...ROOM_TARGET_OPTIONS, CHANNEL_NUM_OPTION],
-			callback: roomCommandWithOpts(instance, 'setNDIContentParticipant', (o) => [Number(o.channel_num) || 1]),
+			callback: roomCommandWithOpts(instance, 'setNDIContentParticipant', (o) => [parseChannelNum(o.channel_num)]),
 		},
 
 		[ActionIdNDI.setNDIContentActiveSpeaker]: {
 			name: 'NDI: Set content to active speaker',
 			options: [...ROOM_TARGET_OPTIONS, CHANNEL_NUM_OPTION],
-			callback: roomCommandWithOpts(instance, 'setNDIContentActiveSpeaker', (o) => [Number(o.channel_num) || 1]),
+			callback: roomCommandWithOpts(instance, 'setNDIContentActiveSpeaker', (o) => [parseChannelNum(o.channel_num)]),
 		},
 
 		[ActionIdNDI.setNDIContentGallery]: {
 			name: 'NDI: Set content to gallery',
 			options: [...ROOM_TARGET_OPTIONS, CHANNEL_NUM_OPTION],
-			callback: roomCommandWithOpts(instance, 'setNDIContentGallery', (o) => [Number(o.channel_num) || 1]),
+			callback: roomCommandWithOpts(instance, 'setNDIContentGallery', (o) => [parseChannelNum(o.channel_num)]),
 		},
 
 		[ActionIdNDI.setNDIContentScreenshare]: {
 			name: 'NDI: Set content to screenshare',
 			options: [...ROOM_TARGET_OPTIONS, CHANNEL_NUM_OPTION],
-			callback: roomCommandWithOpts(instance, 'setNDIContentScreenshare', (o) => [Number(o.channel_num) || 1]),
+			callback: roomCommandWithOpts(instance, 'setNDIContentScreenshare', (o) => [parseChannelNum(o.channel_num)]),
 		},
 
 		[ActionIdNDI.setNDIContentSpotlight]: {
 			name: 'NDI: Set content to spotlight',
 			options: [...ROOM_TARGET_OPTIONS, CHANNEL_NUM_OPTION],
-			callback: roomCommandWithOpts(instance, 'setNDIContentSpotlight', (o) => [Number(o.channel_num) || 1]),
+			callback: roomCommandWithOpts(instance, 'setNDIContentSpotlight', (o) => [parseChannelNum(o.channel_num)]),
 		},
 
 		[ActionIdNDI.setNDIContentPinGroup]: {
 			name: 'NDI: Set content to pin group',
 			options: [...ROOM_TARGET_OPTIONS, CHANNEL_NUM_OPTION],
-			callback: roomCommandWithOpts(instance, 'setNDIContentPinGroup', (o) => [Number(o.channel_num) || 1]),
+			callback: roomCommandWithOpts(instance, 'setNDIContentPinGroup', (o) => [parseChannelNum(o.channel_num)]),
 		},
 
 		[ActionIdNDI.setNDIParticipantSelection]: {
@@ -72,7 +78,7 @@ export function GetActionsNDI(instance: ZoomRoomsInstance): {
 				{ type: 'textinput', label: 'Zoom username', id: 'exact_zoom_username', default: '' },
 			],
 			callback: roomCommandWithOpts(instance, 'setNDIParticipantSelection', (o) => [
-				Number(o.channel_num) || 1,
+				parseChannelNum(o.channel_num),
 				typeof o.exact_zoom_username === 'string' ? o.exact_zoom_username : '',
 			]),
 		},
@@ -85,7 +91,7 @@ export function GetActionsNDI(instance: ZoomRoomsInstance): {
 				{ type: 'number', label: 'Gallery index', id: 'gallery_index', default: 0, min: 0, max: 99 },
 			],
 			callback: roomCommandWithOpts(instance, 'setNDIGallerySelection', (o) => [
-				Number(o.channel_num) || 1,
+				parseChannelNum(o.channel_num),
 				Number(o.gallery_index || 0),
 			]),
 		},
@@ -98,7 +104,7 @@ export function GetActionsNDI(instance: ZoomRoomsInstance): {
 				{ type: 'number', label: 'Screenshare index', id: 'screenshare_index', default: 0, min: 0, max: 99 },
 			],
 			callback: roomCommandWithOpts(instance, 'setNDIScreenshareSelection', (o) => [
-				Number(o.channel_num) || 1,
+				parseChannelNum(o.channel_num),
 				Number(o.screenshare_index) || 0,
 			]),
 		},
@@ -111,7 +117,7 @@ export function GetActionsNDI(instance: ZoomRoomsInstance): {
 				{ type: 'number', label: 'Pin group index', id: 'pin_group_index', default: 0, min: 0, max: 99 },
 			],
 			callback: roomCommandWithOpts(instance, 'setNDIPinGroupSelection', (o) => [
-				Number(o.channel_num) || 1,
+				parseChannelNum(o.channel_num),
 				Number(o.pin_group_index) || 0,
 			]),
 		},
@@ -119,7 +125,7 @@ export function GetActionsNDI(instance: ZoomRoomsInstance): {
 		[ActionIdNDI.getNDIChannelConfig]: {
 			name: 'NDI: Get channel config',
 			options: [...ROOM_TARGET_OPTIONS, CHANNEL_NUM_OPTION],
-			callback: roomCommandWithOpts(instance, 'getNDIChannelConfig', (o) => [Number(o.channel_num) || 1]),
+			callback: roomCommandWithOpts(instance, 'getNDIChannelConfig', (o) => [parseChannelNum(o.channel_num)]),
 		},
 
 		[ActionIdNDI.getNDIChannelCount]: {

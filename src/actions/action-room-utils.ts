@@ -45,12 +45,22 @@ export const ROOM_TARGET_OPTIONS: SomeCompanionActionInputField[] = [
 ]
 
 export const CHANNEL_NUM_OPTION: SomeCompanionActionInputField = {
-	type: 'number',
-	label: 'Channel',
+	type: 'textinput',
+	label: 'Channel (number or variable, e.g. $(cavzrc:room_1_hwio_<name>_channel))',
 	id: 'channel_num',
-	default: 1,
-	min: 1,
-	max: 64,
+	default: '1',
+	useVariables: true,
+}
+
+/** Channel number from the Channel option. Missing means 1; anything else that is not a channel number is refused, so an empty variable never lands on channel 1. */
+export function parseChannelNum(value: unknown): number {
+	if (value === undefined) return 1
+	const text = typeof value === 'number' ? String(value) : typeof value === 'string' ? value.trim() : ''
+	const n = Number(text)
+	if (text === '' || !Number.isInteger(n) || n < 1 || n > 999) {
+		throw new Error(`Invalid channel: "${text}". Must be a channel number (an unknown channel name variable is empty).`)
+	}
+	return n
 }
 
 export function parseRoomIndex(value: unknown): number {

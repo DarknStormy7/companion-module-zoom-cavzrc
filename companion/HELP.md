@@ -28,6 +28,8 @@ Each query has its own setting (Off, on connect, or an interval):
 - **Gallery mode, grid size and exclude options**: default every 30 s.
 - **HWIO channel routing**: default on connect. Reads every HWIO channel one by one and fills
   `room_N_hwio_<name>_channel` with the channel number, so a remap after a Mac restart is visible.
+  Put that variable in the **Channel** field of any HWIO action to address a screen by name; an
+  unknown name leaves it empty and the action sends nothing.
 - **Room lists**: on connect, and again automatically when a reply arrives from a room the module does not know.
 
 Mute and camera status need no polling: CAVZRC sends them when they change.

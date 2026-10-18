@@ -6,7 +6,7 @@ export enum PresetIdDante {
 	DanteContentMix = 'dante_content_mix',
 }
 
-const defaultOpts = { targetType: 'roomIndex', roomIndex: 1, channel_num: 1 }
+const defaultOpts = { targetType: 'roomIndex', roomIndex: 1, channel_num: '1' }
 
 export function GetPresetsDante(): { [id in PresetIdDante]: CompanionPresetExt | undefined } {
 	const presets: { [id in PresetIdDante]: CompanionPresetExt | undefined } = {

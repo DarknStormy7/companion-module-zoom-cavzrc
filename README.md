@@ -16,6 +16,7 @@ Bitfocus Companion module for **Custom AV for Zoom Rooms Controller (CAVZRC)**. 
 - **Room variables by position.** `room_1_*` … `room_10_*` are filled in CAVZRC list order even when replies arrive out of order or with gaps. `room_N_cavzrc_index` shows CAVZRC's own index.
 - **Room lists stay current.** A resent list replaces the old one, so removed rooms drop out. Both `pairedRoomList` (what CAVZRC sends) and `pairedRoomsList` (what the API document says) are accepted, same for the added list.
 - **"In meeting" means in a meeting.** The feedback is only true for "In Meeting", not while the room is still connecting.
+- **Variables in action fields work.** Text fields marked for variables (room ID, name, index, channel lists…) were sent with `$(...)` still in them; they are now resolved first.
 
 ### Polling, one setting per query
 
@@ -62,11 +63,15 @@ New feedbacks: **Gallery has "not joined" seats** and **Gallery distribution mod
 Aspect ratios that fill a 1920x1080 output: 1x1, 2x2, 3x3, 4x4 = 1.778 · 1x2 = 0.889 · 2x1 = 3.556 · 2x3 = 1.185 · 3x4 = 1.333.
 Channels are changed one at a time ("Wait between channels", default 250 ms), and after a grid change the module waits first ("Wait after the grid change", default 500 ms), so CAVZRC re-lays out one output at a time.
 
+### Channels by name
+
+CAVZRC commands only take a channel number, but the **Channel** field of the HWIO, NDI and Dante actions now accepts a variable. With **HWIO channel routing** polling on, each named HWIO channel gets `$(cavzrc:room_N_hwio_<name>_channel)` holding its number (name lowercased, anything but letters and digits becomes `_`; "Screen A-1" → `room_1_hwio_screen_a_1_channel`). Put that variable in the Channel field and the button follows the screen even if its number changes. If the name is unknown the variable is empty and the action sends nothing (it logs an error) rather than falling back to channel 1. ⚠️ Not tested on a live CAVZRC yet.
+
 ### Install this fork in Companion
 
 1. Download the module package (`zoom-cavzrc-<version>.tgz`) built from this repository, or build it: `npm install`, `npx tsc -p tsconfig.build.json`, `npx companion-module-build`.
 2. Extract it and copy the contents of its `pkg` folder into Companion's developer modules folder, e.g. `%AppData%\companion\dev\zoom-cavzrc\` on Windows.
-3. Quit Companion from the tray and start it again. The connection shows the new version (0.6.0) and the per-query polling settings.
+3. Quit Companion from the tray and start it again. The connection shows the new version (0.7.0) and the per-query polling settings.
 
 **Repository (upstream):** [github.com/bitfocus/companion-module-zoom-cavzrc](https://github.com/bitfocus/companion-module-zoom-cavzrc)
 

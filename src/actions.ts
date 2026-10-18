@@ -1,4 +1,9 @@
-import type { CompanionActionDefinitions, CompanionActionDefinition } from '@companion-module/base'
+import type {
+	CompanionActionDefinitions,
+	CompanionActionDefinition,
+	CompanionActionEvent,
+	CompanionActionContext,
+} from '@companion-module/base'
 import type { ZoomRoomsInstance } from './utils.js'
 import { ActionIdJoinFlow, GetActionsJoinFlow } from './actions/action-join-flow.js'
 import { ActionIdNDI, GetActionsNDI } from './actions/action-ndi.js'
@@ -75,5 +80,31 @@ export function GetActions(instance: ZoomRoomsInstance): CompanionActionDefiniti
 		...actionsGallery,
 	}
 
+	for (const action of Object.values(actions)) {
+		if (action) action.callback = withParsedVariables(action.callback)
+	}
+
 	return actions
+}
+
+/**
+ * Companion hands options over with variables still in them, so every text option
+ * holding $(...) is resolved before the action runs. Without variables the action
+ * runs straight away, as before.
+ */
+export function withParsedVariables(
+	callback: CompanionActionDefinition['callback'],
+): CompanionActionDefinition['callback'] {
+	return (event: CompanionActionEvent, context: CompanionActionContext): Promise<void> | void => {
+		const keys = Object.keys(event.options).filter((k) => {
+			const v = event.options[k]
+			return typeof v === 'string' && v.includes('$(')
+		})
+		if (keys.length === 0 || !context?.parseVariablesInString) return callback(event, context)
+		return (async () => {
+			const options = { ...event.options }
+			for (const k of keys) options[k] = await context.parseVariablesInString(options[k] as string)
+			return callback({ ...event, options }, context)
+		})()
+	}
 }

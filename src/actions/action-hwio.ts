@@ -1,6 +1,12 @@
 import type { CompanionActionDefinition } from '@companion-module/base'
 import type { ZoomRoomsInstance } from '../utils.js'
-import { ROOM_TARGET_OPTIONS, CHANNEL_NUM_OPTION, roomCommand, roomCommandWithOpts } from './action-room-utils.js'
+import {
+	ROOM_TARGET_OPTIONS,
+	CHANNEL_NUM_OPTION,
+	parseChannelNum,
+	roomCommand,
+	roomCommandWithOpts,
+} from './action-room-utils.js'
 
 export enum ActionIdHWIO {
 	setHWIOMode = 'setHWIOMode',
@@ -36,7 +42,7 @@ export function GetActionsHWIO(instance: ZoomRoomsInstance): {
 				{ type: 'number', label: 'Mode index', id: 'mode_index', default: 0, min: 0, max: 99 },
 			],
 			callback: roomCommandWithOpts(instance, 'setHWIOMode', (o) => [
-				Number(o.channel_num) || 1,
+				parseChannelNum(o.channel_num),
 				Number(o.mode_index) || 0,
 			]),
 		},
@@ -49,7 +55,7 @@ export function GetActionsHWIO(instance: ZoomRoomsInstance): {
 				{ type: 'number', label: 'Video index', id: 'video_index', default: 0, min: 0, max: 99 },
 			],
 			callback: roomCommandWithOpts(instance, 'setHWIOInputSelection', (o) => [
-				Number(o.channel_num) || 1,
+				parseChannelNum(o.channel_num),
 				Number(o.video_index) || 0,
 			]),
 		},
@@ -57,49 +63,49 @@ export function GetActionsHWIO(instance: ZoomRoomsInstance): {
 		[ActionIdHWIO.setHWIOContentOff]: {
 			name: 'HWIO: Content off',
 			options: [...ROOM_TARGET_OPTIONS, CHANNEL_NUM_OPTION],
-			callback: roomCommandWithOpts(instance, 'setHWIOContentOff', (o) => [Number(o.channel_num) || 1]),
+			callback: roomCommandWithOpts(instance, 'setHWIOContentOff', (o) => [parseChannelNum(o.channel_num)]),
 		},
 
 		[ActionIdHWIO.setHWIOContentTestSignal]: {
 			name: 'HWIO: Content test signal',
 			options: [...ROOM_TARGET_OPTIONS, CHANNEL_NUM_OPTION],
-			callback: roomCommandWithOpts(instance, 'setHWIOContentTestSignal', (o) => [Number(o.channel_num) || 1]),
+			callback: roomCommandWithOpts(instance, 'setHWIOContentTestSignal', (o) => [parseChannelNum(o.channel_num)]),
 		},
 
 		[ActionIdHWIO.setHWIOContentParticipant]: {
 			name: 'HWIO: Content participant',
 			options: [...ROOM_TARGET_OPTIONS, CHANNEL_NUM_OPTION],
-			callback: roomCommandWithOpts(instance, 'setHWIOContentParticipant', (o) => [Number(o.channel_num) || 1]),
+			callback: roomCommandWithOpts(instance, 'setHWIOContentParticipant', (o) => [parseChannelNum(o.channel_num)]),
 		},
 
 		[ActionIdHWIO.setHWIOContentActiveSpeaker]: {
 			name: 'HWIO: Content active speaker',
 			options: [...ROOM_TARGET_OPTIONS, CHANNEL_NUM_OPTION],
-			callback: roomCommandWithOpts(instance, 'setHWIOContentActiveSpeaker', (o) => [Number(o.channel_num) || 1]),
+			callback: roomCommandWithOpts(instance, 'setHWIOContentActiveSpeaker', (o) => [parseChannelNum(o.channel_num)]),
 		},
 
 		[ActionIdHWIO.setHWIOContentGallery]: {
 			name: 'HWIO: Content gallery',
 			options: [...ROOM_TARGET_OPTIONS, CHANNEL_NUM_OPTION],
-			callback: roomCommandWithOpts(instance, 'setHWIOContentGallery', (o) => [Number(o.channel_num) || 1]),
+			callback: roomCommandWithOpts(instance, 'setHWIOContentGallery', (o) => [parseChannelNum(o.channel_num)]),
 		},
 
 		[ActionIdHWIO.setHWIOContentScreenshare]: {
 			name: 'HWIO: Content screenshare',
 			options: [...ROOM_TARGET_OPTIONS, CHANNEL_NUM_OPTION],
-			callback: roomCommandWithOpts(instance, 'setHWIOContentScreenshare', (o) => [Number(o.channel_num) || 1]),
+			callback: roomCommandWithOpts(instance, 'setHWIOContentScreenshare', (o) => [parseChannelNum(o.channel_num)]),
 		},
 
 		[ActionIdHWIO.setHWIOContentSpotlight]: {
 			name: 'HWIO: Content spotlight',
 			options: [...ROOM_TARGET_OPTIONS, CHANNEL_NUM_OPTION],
-			callback: roomCommandWithOpts(instance, 'setHWIOContentSpotlight', (o) => [Number(o.channel_num) || 1]),
+			callback: roomCommandWithOpts(instance, 'setHWIOContentSpotlight', (o) => [parseChannelNum(o.channel_num)]),
 		},
 
 		[ActionIdHWIO.setHWIOContentPinGroup]: {
 			name: 'HWIO: Content pin group',
 			options: [...ROOM_TARGET_OPTIONS, CHANNEL_NUM_OPTION],
-			callback: roomCommandWithOpts(instance, 'setHWIOContentPinGroup', (o) => [Number(o.channel_num) || 1]),
+			callback: roomCommandWithOpts(instance, 'setHWIOContentPinGroup', (o) => [parseChannelNum(o.channel_num)]),
 		},
 
 		[ActionIdHWIO.setHWIOResolutionFrameRate]: {
@@ -110,7 +116,7 @@ export function GetActionsHWIO(instance: ZoomRoomsInstance): {
 				{ type: 'textinput', label: 'Resolution/framerate', id: 'resolution_framerate', default: '' },
 			],
 			callback: roomCommandWithOpts(instance, 'setHWIOResolutionFrameRate', (o) => [
-				Number(o.channel_num) || 1,
+				parseChannelNum(o.channel_num),
 				typeof o.resolution_framerate === 'string' ? o.resolution_framerate : '',
 			]),
 		},
@@ -123,7 +129,7 @@ export function GetActionsHWIO(instance: ZoomRoomsInstance): {
 				{ type: 'number', label: 'Setting index', id: 'setting_index', default: 0, min: 0, max: 99 },
 			],
 			callback: roomCommandWithOpts(instance, 'setHWIOAudioMix', (o) => [
-				Number(o.channel_num) || 1,
+				parseChannelNum(o.channel_num),
 				Number(o.setting_index) || 0,
 			]),
 		},
@@ -136,7 +142,7 @@ export function GetActionsHWIO(instance: ZoomRoomsInstance): {
 				{ type: 'textinput', label: 'Zoom username', id: 'zoom_username', default: '' },
 			],
 			callback: roomCommandWithOpts(instance, 'setHWIOParticipantSelection', (o) => [
-				Number(o.channel_num) || 1,
+				parseChannelNum(o.channel_num),
 				typeof o.zoom_username === 'string' ? o.zoom_username : '',
 			]),
 		},
@@ -149,7 +155,7 @@ export function GetActionsHWIO(instance: ZoomRoomsInstance): {
 				{ type: 'number', label: 'Gallery index', id: 'gallery_index', default: 0, min: 0, max: 99 },
 			],
 			callback: roomCommandWithOpts(instance, 'setHWIOGallerySelection', (o) => [
-				Number(o.channel_num) || 1,
+				parseChannelNum(o.channel_num),
 				Number(o.gallery_index) || 0,
 			]),
 		},
@@ -162,7 +168,7 @@ export function GetActionsHWIO(instance: ZoomRoomsInstance): {
 				{ type: 'number', label: 'Screenshare index', id: 'screenshare_index', default: 0, min: 0, max: 99 },
 			],
 			callback: roomCommandWithOpts(instance, 'setHWIOScreenshareSelection', (o) => [
-				Number(o.channel_num) || 1,
+				parseChannelNum(o.channel_num),
 				Number(o.screenshare_index) || 0,
 			]),
 		},
@@ -175,7 +181,7 @@ export function GetActionsHWIO(instance: ZoomRoomsInstance): {
 				{ type: 'number', label: 'Pin group index', id: 'pin_group_index', default: 0, min: 0, max: 99 },
 			],
 			callback: roomCommandWithOpts(instance, 'setHWIOPinGroupSelection', (o) => [
-				Number(o.channel_num) || 1,
+				parseChannelNum(o.channel_num),
 				Number(o.pin_group_index) || 0,
 			]),
 		},
@@ -183,7 +189,7 @@ export function GetActionsHWIO(instance: ZoomRoomsInstance): {
 		[ActionIdHWIO.getHWIOChannelConfig]: {
 			name: 'HWIO: Get channel config',
 			options: [...ROOM_TARGET_OPTIONS, CHANNEL_NUM_OPTION],
-			callback: roomCommandWithOpts(instance, 'getHWIOChannelConfig', (o) => [Number(o.channel_num) || 1]),
+			callback: roomCommandWithOpts(instance, 'getHWIOChannelConfig', (o) => [parseChannelNum(o.channel_num)]),
 		},
 
 		[ActionIdHWIO.getHWIOChannelCount]: {
@@ -196,7 +202,7 @@ export function GetActionsHWIO(instance: ZoomRoomsInstance): {
 			name: 'HWIO: Get supported resolution/framerate',
 			options: [...ROOM_TARGET_OPTIONS, CHANNEL_NUM_OPTION],
 			callback: roomCommandWithOpts(instance, 'getHWIOSupportedResolutionFrameRate', (o) => [
-				Number(o.channel_num) || 1,
+				parseChannelNum(o.channel_num),
 			]),
 		},
 	}

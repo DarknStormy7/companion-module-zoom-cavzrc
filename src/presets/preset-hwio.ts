@@ -6,7 +6,7 @@ export enum PresetIdHWIO {
 	HwioContentParticipant = 'hwio_content_participant',
 }
 
-const defaultOpts = { targetType: 'roomIndex', roomIndex: 1, channel_num: 1 }
+const defaultOpts = { targetType: 'roomIndex', roomIndex: 1, channel_num: '1' }
 
 export function GetPresetsHWIO(): { [id in PresetIdHWIO]: CompanionPresetExt | undefined } {
 	const presets: { [id in PresetIdHWIO]: CompanionPresetExt | undefined } = {

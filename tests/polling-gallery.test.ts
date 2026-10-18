@@ -415,3 +415,38 @@ describe('helpers and upgrade', () => {
 		expect(run({ pollMeetingStatus: 5000 })).toBeNull()
 	})
 })
+
+describe('channel option with variables', () => {
+	it('resolves $(...) in options before the action runs', async () => {
+		const mock = createMockInstance()
+		const actions = GetActions(mock.instance)
+		const cb = (actions.setHWIOContentGallery as unknown as { callback: (e: unknown, c: unknown) => unknown }).callback
+		const parse = jest.fn(async (t: string) => t.replace('$(cavzrc:room_1_hwio_screen_a_channel)', '7'))
+		await cb(
+			{ options: { targetType: 'roomIndex', roomIndex: '1', channel_num: '$(cavzrc:room_1_hwio_screen_a_channel)' } },
+			{ parseVariablesInString: parse },
+		)
+		expect(parse).toHaveBeenCalledTimes(1)
+		expect(mock.mockSendCommand).toHaveBeenCalledWith('/zoomRooms/roomIndex/setHWIOContentGallery', [1, 7])
+	})
+
+	it('accepts the channel as text', () => {
+		const mock = createMockInstance()
+		invoke(GetActions(mock.instance).setHWIOContentOff, { targetType: 'roomIndex', roomIndex: 1, channel_num: '4' })
+		expect(mock.mockSendCommand).toHaveBeenCalledWith('/zoomRooms/roomIndex/setHWIOContentOff', [1, 4])
+	})
+
+	it('sends nothing when the channel variable is empty (unknown name)', () => {
+		const mock = createMockInstance()
+		invoke(GetActions(mock.instance).setHWIOContentOff, { targetType: 'roomIndex', roomIndex: 1, channel_num: '' })
+		expect(mock.mockSendCommand).not.toHaveBeenCalled()
+		expect(mock.instance.log).toHaveBeenCalledWith('error', expect.stringContaining('Invalid channel'))
+	})
+
+	it('upgrade turns saved channel numbers into text', () => {
+		const action = { id: 'a', actionId: 'setHWIOContentOff', options: { channel_num: 3 } }
+		const other = { id: 'b', actionId: 'muteMic', options: {} }
+		const result = UpgradeScripts[1]({} as never, { config: null, actions: [action, other], feedbacks: [] } as never)
+		expect(result.updatedActions).toEqual([{ ...action, options: { channel_num: '3' } }])
+	})
+})
