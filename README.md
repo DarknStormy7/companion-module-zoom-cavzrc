@@ -16,10 +16,10 @@ Bitfocus Companion module for **Custom AV for Zoom Rooms Controller (CAVZRC)**. 
 | ------- | -------- | ------ |
 | [Polling](#polling-one-setting-per-query) | Variables fill themselves; each query has its own interval or can be turned off | ✅ |
 | [Channels by name](#channels-by-name) | Put `$(cavzrc:room_1_hwio_<name>_channel)` in a Channel field, so a button follows a screen even if its number changes | ✅ |
-| [Several channels](#several-channels-in-one-action) | Every HWIO, NDI and Dante channel action can target a list of channels, one after the other | ⚠️ |
+| [Several channels](#several-channels-in-one-action) | Every HWIO, NDI and Dante channel action can target a list of channels, one after the other | ✅ |
 | [Gallery seats](#gallery-not-joined-seats-cavzrc-71) | Clear `<name> not joined` seats, assign and swap seats (CAVZRC 7.1) | ✅ / ⚠️ |
 | [Meeting ID](#the-meeting-id) | Cannot be read from CAVZRC; typed by hand or kept from **Join meeting** | — |
-| [HWIO layout](#hwio-layout) | Gallery grid size and tile aspect ratio per output, applied one channel at a time | ⚠️ |
+| [HWIO layout](#hwio-layout) | Gallery grid size and tile aspect ratio per output, applied one channel at a time | ✅ |
 | [Fixes](#fixes) | Room index, room lists, "In meeting" feedback, variables in action fields, connection health | ✅ |
 
 ✅ tested on a live CAVZRC 7.1.0 · ⚠️ not tested live yet
@@ -90,8 +90,6 @@ The only exception: a meeting joined with this module's own **Join meeting** act
 The stored ID is cleared when the room goes back to an idle status. ⚠️ The module expects "Idle" or "Not in meeting"; not yet confirmed on live traffic.
 
 ### HWIO layout
-
-⚠️ Setting the layout is not tested on a live CAVZRC yet; reading it back is.
 
 - **HWIO: Set gallery grid size**: the "Hardware output gallery size", optionally with the matching tile aspect ratio.
 - **HWIO: Set tile aspect ratio**: one or more channels (`1,3,4,5`), with the ratio that matches the current gallery grid (recommended), a preset per layout, or a custom value.
